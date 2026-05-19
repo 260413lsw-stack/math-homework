@@ -73,17 +73,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert("대결 모드에서는 방을 만들거나 접속해야 시작할 수 있습니다!");
                 return;
             }
-            if (state.gameMode === 'versus' && state.isHost) {
-                state.numNodes = Math.min(3 + state.level, 8); 
-                generateNodes();
-                generateMatrix();
-                state.conn.send({ type: 'start_game', nodes: state.nodes, adjMatrix: state.adjMatrix, numNodes: state.numNodes, level: state.level });
-                startLevel(true);
-            } else if (state.gameMode !== 'versus') {
-                startLevel(true);
-            } else {
+            if (state.gameMode === 'versus' && !state.isHost) {
                 alert("방장이 게임을 시작할 때까지 기다려주세요.");
+                return;
             }
+            startLevel(true);
         });
         ui.btnReset.addEventListener('click', resetRoute);
         ui.btnNext.addEventListener('click', nextLevel);
@@ -122,15 +116,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // ===== PEERJS MULTIPLAYER =====
     function initHost() {
         ui.multiStatus.textContent = "방 생성 중...";
-        state.peer = new Peer();
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let code = '';
+        for(let i=0; i<5; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+        
+        state.roomId = code;
+        state.peer = new Peer(state.roomId);
+        
         state.peer.on('open', (id) => {
-            state.roomId = id.substring(0, 5).toUpperCase();
             ui.multiStatus.textContent = `방 생성 완료! 초대 코드: ${state.roomId}`;
             state.isHost = true;
-            
-            state.peer.destroy();
-            state.peer = new Peer(state.roomId);
-            state.peer.on('connection', (conn) => {
+        });
+
+        state.peer.on('connection', (conn) => {
+            conn.on('open', () => {
                 state.conn = conn;
                 setupConnection();
                 ui.multiStatus.textContent = `친구가 접속했습니다! [게임 시작]을 눌러주세요.`;
@@ -141,10 +140,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function initGuest() {
         const code = ui.joinCodeInput.value.trim().toUpperCase();
         if (!code) return alert("코드를 입력하세요!");
+        
+        state.gameMode = 'versus';
+        document.querySelector('input[value="versus"]').checked = true;
+        
         ui.multiStatus.textContent = "접속 중...";
         state.peer = new Peer();
         state.peer.on('open', () => {
-            state.conn = state.peer.connect(code);
+            state.conn = state.peer.connect(code, { reliable: true });
             state.conn.on('open', () => {
                 state.isHost = false;
                 setupConnection();
@@ -183,6 +186,17 @@ document.addEventListener('DOMContentLoaded', () => {
             generateMatrix();
             if (state.gameMode === 'timeattack') {
                 spawnSpecialRoads();
+            }
+            
+            // 호스트일 경우, 맵 생성 직후 게스트에게 전송
+            if (state.gameMode === 'versus' && state.isHost && state.conn) {
+                state.conn.send({ 
+                    type: 'start_game', 
+                    nodes: state.nodes, 
+                    adjMatrix: state.adjMatrix, 
+                    numNodes: state.numNodes, 
+                    level: state.level 
+                });
             }
         } else {
             renderMatrixHTML();
@@ -549,18 +563,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function nextLevel() {
         state.level++;
-        if (state.gameMode === 'versus') {
-            if (state.isHost) {
-                state.numNodes = Math.min(3 + state.level, 8); 
-                generateNodes();
-                generateMatrix();
-                state.conn.send({ type: 'start_game', nodes: state.nodes, adjMatrix: state.adjMatrix, numNodes: state.numNodes, level: state.level });
-                startLevel(true);
-            } else {
-                ui.gameOverlay.classList.add('hidden');
-                ui.startOverlay.classList.remove('hidden');
-                ui.multiStatus.textContent = "방장의 다음 라운드 시작을 기다립니다...";
-            }
+        if (state.gameMode === 'versus' && !state.isHost) {
+            ui.gameOverlay.classList.add('hidden');
+            ui.startOverlay.classList.remove('hidden');
+            ui.multiStatus.textContent = "방장의 다음 라운드 시작을 기다립니다...";
         } else {
             startLevel(true);
         }
@@ -569,17 +575,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetGame() {
         state.level = 1;
         state.score = 0;
-        if (state.gameMode === 'versus') {
-            if (state.isHost) {
-                state.numNodes = Math.min(3 + state.level, 8); 
-                generateNodes();
-                generateMatrix();
-                state.conn.send({ type: 'start_game', nodes: state.nodes, adjMatrix: state.adjMatrix, numNodes: state.numNodes, level: state.level });
-                startLevel(true);
-            } else {
-                ui.gameOverlay.classList.add('hidden');
-                ui.startOverlay.classList.remove('hidden');
-            }
+        if (state.gameMode === 'versus' && !state.isHost) {
+            ui.gameOverlay.classList.add('hidden');
+            ui.startOverlay.classList.remove('hidden');
+            ui.multiStatus.textContent = "방장의 시작을 기다립니다...";
         } else {
             startLevel(true);
         }
