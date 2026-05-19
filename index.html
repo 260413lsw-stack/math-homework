@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>최적 배달 경로 탐색기 | 행렬과 경우의 수</title>
+    <meta name="description" content="인접 행렬과 경우의 수(순열)를 활용해 배달 최적 경로를 탐색하는 수학 탐구 시뮬레이션">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- Floating background orbs -->
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- ===== GAME HUD ===== -->
+<div class="game-hud">
+    <div class="hud-box">
+        <span class="hud-label">LEVEL</span>
+        <span class="hud-value" id="levelDisplay">1</span>
+    </div>
+    <div class="hud-box">
+        <span class="hud-label">SCORE</span>
+        <span class="hud-value score-text" id="scoreDisplay">0</span>
+    </div>
+    <div class="hud-box">
+        <span class="hud-label">BEST</span>
+        <span class="hud-value" id="bestScoreDisplay">0</span>
+    </div>
+    <div class="hud-box timer-box">
+        <span class="hud-label">TIME</span>
+        <span class="hud-value timer-text" id="timeDisplay">10.0</span>
+    </div>
+</div>
+
+<!-- ===== HEADER ===== -->
+<header class="site-header">
+    <div class="header-content">
+        <div class="header-tag">📦 인간 VS 알고리즘</div>
+        <h1>배달 경로 <span class="grad">최적화 게임</span></h1>
+        <p class="header-sub">거점이 늘어날수록 급증하는 경우의 수(조합 폭발)! 컴퓨터의 인접 행렬 알고리즘을 이겨보세요.</p>
+    </div>
+</header>
+
+<!-- ===== EVENT NOTIFICATION AREA ===== -->
+<div id="eventNotification" class="event-notification hidden">
+    <h2 id="eventTitle">⚠️ 교통 체증 발생!</h2>
+    <p id="eventDesc">특정 도로의 가중치가 증가했습니다.</p>
+</div>
+
+<!-- ===== COMBO POPUP AREA ===== -->
+<div id="comboContainer" class="combo-container"></div>
+
+
+<!-- ===== MAIN GAME AREA ===== -->
+<main class="game-area">
+
+    <!-- LEFT: MAP -->
+    <section class="panel map-panel">
+        <div class="panel-header">
+            <h2>🗺️ 동네 네트워크 지도</h2>
+            <span class="panel-hint">거점을 순서대로 클릭해 경로를 완성하세요</span>
+        </div>
+        <div class="canvas-wrapper">
+            <canvas id="mapCanvas"></canvas>
+            
+            <!-- Game Over / Level Clear Overlay -->
+            <div class="game-overlay hidden" id="gameOverlay">
+                <h2 id="overlayTitle">PERFECT!</h2>
+                <p id="overlayDesc">완벽한 경로를 찾았습니다.</p>
+                <div class="overlay-stats">
+                    <div>내 경로: <span id="overlayMyDist">-</span></div>
+                    <div>알고리즘: <span id="overlayOptDist">-</span></div>
+                </div>
+                <button class="btn btn-solve" id="nextLevelBtn">다음 레벨 도전 🚀</button>
+                <button class="btn btn-reset hidden" id="retryBtn">다시 시작 ↺</button>
+            </div>
+            
+            <!-- Start Game Overlay -->
+            <div class="game-overlay" id="startOverlay">
+                <h2 style="font-size: 2.5rem; color: var(--accent-blue); margin-bottom: 10px;">알고리즘을 이겨라!</h2>
+                <p style="margin-bottom: 20px;">시간 내에 거점들을 모두 거쳐 <strong>기지(🏠)</strong>로 돌아오는 가장 빠른 경로를 찾으세요.</p>
+                <button class="btn btn-solve" id="startGameBtn" style="font-size: 1.2rem; padding: 15px 40px;">게임 시작 🎮</button>
+            </div>
+            
+        </div>
+        <div class="map-legend">
+            <div class="legend-item"><span class="legend-dot base"></span>기지 (시작/종료)</div>
+            <div class="legend-item"><span class="legend-dot stop"></span>배달 거점</div>
+            <div class="legend-item"><span class="legend-line my"></span>내 경로</div>
+            <div class="legend-item"><span class="legend-line opt"></span>최적 경로</div>
+        </div>
+    </section>
+
+    <!-- RIGHT: ROUTE & MATRIX -->
+    <section class="side-panel">
+        <!-- Route Builder -->
+        <div class="panel route-panel">
+            <div class="panel-header">
+                <h2>🚦 내 경로 (진행률)</h2>
+            </div>
+            <div class="route-display">
+                <div class="route-steps" id="routeSteps">
+                    <div class="route-node base-node">🏠</div>
+                </div>
+                <div class="route-dist-row">
+                    <span>현재 거리:</span>
+                    <span class="route-dist-val" id="myDistDisplay">0.0 km</span>
+                </div>
+            </div>
+            <div class="action-row">
+                <button class="btn btn-reset" id="resetRouteBtn">↺ 선 지우기</button>
+            </div>
+        </div>
+        
+        <!-- MATRIX -->
+        <div class="panel matrix-panel">
+            <div class="panel-header">
+                <h2>📊 실시간 인접 행렬</h2>
+            </div>
+            <div class="matrix-wrapper">
+                <table class="matrix-table" id="matrixTable"></table>
+            </div>
+            <div class="matrix-info">
+                <p>알고리즘은 이 행렬을 사용해 브루트 포스 연산을 수행합니다.</p>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<!-- ===== MATH CONCEPTS ===== -->
+<section class="concepts-section">
+    <h2 class="concepts-title">📚 수학/산업공학 탐구 보고서</h2>
+    <div class="concepts-tabs">
+        <button class="tab-btn active" data-tab="matrix">인접 행렬</button>
+        <button class="tab-btn" data-tab="perm">경우의 수 (순열)</button>
+        <button class="tab-btn" data-tab="opt">최적화 원리</button>
+        <button class="tab-btn" data-tab="tsp">조합 폭발</button>
+    </div>
+    <div class="tab-content active" id="tab-matrix">
+        <div class="concept-card">
+            <h3>인접 행렬 (Adjacency Matrix)</h3>
+            <p>현실의 도로 네트워크를 <strong>점(Vertex)</strong>과 <strong>간선(Edge)</strong>으로 이루어진 그래프로 추상화한 뒤, 각 지점 간의 연결 관계와 거리(가중치)를 <strong>행렬</strong>로 수치화합니다.</p>
+            <div class="formula-box">
+                <code>A[i][j] = 거점 i에서 거점 j까지의 거리(km)</code><br>
+                <code>A[i][i] = 0  (자기 자신까지 거리는 0)</code><br>
+                <code>A[i][j] = A[j][i]  (무방향 그래프: 대칭 행렬)</code>
+            </div>
+            <p>행렬의 <strong>거듭제곱(A²)</strong>을 계산하면 <em>2단계를 거쳐 도달 가능한 경로의 수</em>를 파악할 수 있습니다. 이것이 행렬 연산의 핵심 의미입니다.</p>
+        </div>
+    </div>
+    <div class="tab-content" id="tab-perm">
+        <div class="concept-card">
+            <h3>경우의 수 — 순열 (Permutation)</h3>
+            <p>배달 기지에서 출발하여 <strong>N개의 거점을 모두 방문</strong>하고 돌아오는 순서를 정할 때, 발생 가능한 모든 방문 순서의 수는 순열로 계산됩니다.</p>
+            <div class="formula-box">
+                <code>N개 거점의 방문 순서 = N! 가지</code>
+            </div>
+            <p>이 중 거리 합계가 <strong>최소</strong>인 순서를 찾는 것이 이번 탐구의 핵심입니다. 브루트 포스(완전 탐색)로는 모든 가지수를 계산하여 최솟값을 찾습니다.</p>
+        </div>
+    </div>
+    <div class="tab-content" id="tab-opt">
+        <div class="concept-card">
+            <h3>최적화 원리</h3>
+            <p>경로의 총 거리는 각 구간 거리의 합으로 계산됩니다. 인접 행렬 A에서 경로 [v₀→v₁→…→vₙ→v₀]의 총 비용은:</p>
+            <div class="formula-box">
+                <code>Cost = A[v₀][v₁] + A[v₁][v₂] + ... + A[vₙ₋₁][vₙ] + A[vₙ][v₀]</code>
+            </div>
+            <p>이 값을 모든 순열에 대해 계산하고 <strong>최솟값(min)</strong>을 찾는 것이 알고리즘의 역할입니다.</p>
+        </div>
+    </div>
+    <div class="tab-content" id="tab-tsp">
+        <div class="concept-card">
+            <h3>조합 폭발 (Combinatorial Explosion)</h3>
+            <p>이 게임의 레벨이 오를수록 거점 수가 늘어나고, 계산해야 할 경우의 수는 <strong>기하급수적</strong>으로 증가합니다. 산업공학 물류가 어려운 이유입니다.</p>
+            <div class="explosion-table">
+                <div class="exp-row header"><span>거점 수 (N)</span><span>경우의 수 (N!)</span><span>인간의 느낌</span></div>
+                <div class="exp-row"><span>4개</span><span>24</span><span>매우 쉬움</span></div>
+                <div class="exp-row"><span>5개</span><span>120</span><span>직관으로 가능</span></div>
+                <div class="exp-row"><span>7개</span><span>5,040</span><span>헷갈림 시작</span></div>
+                <div class="exp-row highlight"><span>20개</span><span>2.4 × 10¹⁸</span><span>우주 나이 초과</span></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer class="site-footer">
+    <p>수학 탐구 프로젝트 · 공통수학1 [행렬] & [경우의 수] · 산업공학 진로 연계</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
