@@ -233,34 +233,47 @@ body.boss-mode {
     100% { top: 90px; opacity: 1; }
 }
 
-/* Combo Popup Area */
-.combo-container {
-    position: fixed;
-    top: 50%;
-    left: 25%;
-    transform: translate(-50%, -50%);
-    pointer-events: none;
-    z-index: 500;
-    width: 200px;
-    height: 200px;
+/* Game Mode Selection */
+.mode-selection {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+    text-align: left;
 }
-.combo-popup {
-    position: absolute;
-    font-family: 'JetBrains Mono', monospace;
-    font-weight: 800;
-    color: var(--accent-yellow);
-    font-size: 2rem;
-    text-shadow: 0 0 10px var(--accent-yellow), 2px 2px 0px #000;
-    animation: floatUp 1s ease-out forwards;
-    opacity: 0;
-    pointer-events: none;
+.mode-card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
 }
-@keyframes floatUp {
-    0% { transform: translateY(20px) scale(0.5); opacity: 0; }
-    20% { transform: translateY(0px) scale(1.2); opacity: 1; }
-    80% { transform: translateY(-30px) scale(1); opacity: 1; }
-    100% { transform: translateY(-50px) scale(1); opacity: 0; }
+.mode-card:hover { background: rgba(255,255,255,0.1); }
+.mode-card input[type="radio"] { margin-top: 5px; cursor: pointer; }
+.mode-card:has(input[type="radio"]:checked) {
+    border-color: var(--accent-blue);
+    background: rgba(59, 130, 246, 0.1);
 }
+.mode-card input[type="radio"]:checked + .mode-content h3 { color: var(--accent-blue); }
+.mode-content h3 { font-size: 1rem; margin: 0 0 4px 0; transition: var(--transition); }
+.mode-content p { font-size: 0.75rem; margin: 0; color: var(--text-muted); line-height: 1.3; }
+
+.multiplayer-setup {
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    border: 1px dashed var(--accent-green);
+}
+
+/* Special Edges in Matrix Table */
+.matrix-table td.bonus-road { color: #fbbf24; font-weight: bold; text-shadow: 0 0 5px rgba(251, 191, 36, 0.5); }
+.matrix-table td.penalty-road { color: #ef4444; font-weight: bold; text-shadow: 0 0 5px rgba(239, 68, 68, 0.5); }
+
 
 /* Traffic Jam Matrix Highlight */
 .matrix-table td.jammed {

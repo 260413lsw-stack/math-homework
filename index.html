@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
 
@@ -52,9 +53,6 @@
     <p id="eventDesc">특정 도로의 가중치가 증가했습니다.</p>
 </div>
 
-<!-- ===== COMBO POPUP AREA ===== -->
-<div id="comboContainer" class="combo-container"></div>
-
 
 <!-- ===== MAIN GAME AREA ===== -->
 <main class="game-area">
@@ -82,9 +80,51 @@
             
             <!-- Start Game Overlay -->
             <div class="game-overlay" id="startOverlay">
-                <h2 style="font-size: 2.5rem; color: var(--accent-blue); margin-bottom: 10px;">알고리즘을 이겨라!</h2>
-                <p style="margin-bottom: 20px;">시간 내에 거점들을 모두 거쳐 <strong>기지(🏠)</strong>로 돌아오는 가장 빠른 경로를 찾으세요.</p>
-                <button class="btn btn-solve" id="startGameBtn" style="font-size: 1.2rem; padding: 15px 40px;">게임 시작 🎮</button>
+                <h2 style="font-size: 2.5rem; color: var(--accent-blue); margin-bottom: 5px;">최적화 미션 선택</h2>
+                <p style="margin-bottom: 15px; font-size: 0.95rem;">경우의 수를 이겨낼 당신만의 미션을 선택하세요.</p>
+                
+                <div class="mode-selection">
+                    <label class="mode-card">
+                        <input type="radio" name="gameMode" value="normal" checked>
+                        <div class="mode-content">
+                            <h3>일반 모드 🟢</h3>
+                            <p>기초적인 탐색. 시간 제한이 넉넉합니다.</p>
+                        </div>
+                    </label>
+                    <label class="mode-card">
+                        <input type="radio" name="gameMode" value="timeattack">
+                        <div class="mode-content">
+                            <h3>타임어택 ⏱️</h3>
+                            <p>황금/페널티 도로가 실시간 등장! 극한의 시간.</p>
+                        </div>
+                    </label>
+                    <label class="mode-card">
+                        <input type="radio" name="gameMode" value="perfect">
+                        <div class="mode-content">
+                            <h3>퍼펙트 💎</h3>
+                            <p>알고리즘과 100% 일치해야 승리. 1번의 오차도 허용 불가.</p>
+                        </div>
+                    </label>
+                    <label class="mode-card">
+                        <input type="radio" name="gameMode" value="versus">
+                        <div class="mode-content">
+                            <h3>대결 모드 ⚔️</h3>
+                            <p>친구와 실시간으로 방을 만들어 두뇌 레이스!</p>
+                        </div>
+                    </label>
+                </div>
+                
+                <div id="multiplayerSetup" class="multiplayer-setup hidden">
+                    <button class="btn" id="createRoomBtn">방 만들기 (초대 코드 생성)</button>
+                    <div style="margin: 10px 0;">또는</div>
+                    <div style="display: flex; gap: 8px; justify-content: center;">
+                        <input type="text" id="joinCodeInput" placeholder="친구의 초대 코드 입력" style="padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.3); color: white;">
+                        <button class="btn btn-solve" id="joinRoomBtn" style="flex: none;">접속</button>
+                    </div>
+                    <p id="multiStatusText" style="color: #10b981; margin-top: 10px; font-weight: bold;"></p>
+                </div>
+
+                <button class="btn btn-solve" id="startGameBtn" style="font-size: 1.2rem; padding: 15px 40px; margin-top: 20px;">게임 시작 🎮</button>
             </div>
             
         </div>

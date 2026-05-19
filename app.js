@@ -1,5 +1,5 @@
 /**
- * TSP 게임화 로직 (Brute Force Algorithm)
+ * TSP 게임화 로직 (Brute Force Algorithm) + 멀티플레이어 + 다중 모드
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,17 +10,25 @@ document.addEventListener('DOMContentLoaded', () => {
         bestScore: localStorage.getItem('tspBestScore') || 0,
         timeLeft: 0,
         timerId: null,
-        jamTimerId: null, // 교통체증 타이머
+        jamTimerId: null, 
         numNodes: 4,
         nodes: [],
         adjMatrix: [],
         myRoute: [0],
         isPlaying: false,
         isGameOver: false,
-        combo: 0,
-        lastClickTime: 0,
         particles: [],
-        avatarProgress: 0 // 오토바이 이동 진행도
+        avatarProgress: 0,
+        
+        // Multi mode & PeerJS
+        gameMode: 'normal',
+        peer: null,
+        conn: null,
+        roomId: null,
+        isHost: false,
+        opponentRoute: [],
+        opponentFinished: false,
+        opponentDist: 0
     };
 
     // ===== DOM ELEMENTS =====
@@ -43,7 +51,15 @@ document.addEventListener('DOMContentLoaded', () => {
         btnStart: document.getElementById('startGameBtn'),
         btnReset: document.getElementById('resetRouteBtn'),
         btnNext: document.getElementById('nextLevelBtn'),
-        btnRetry: document.getElementById('retryBtn')
+        btnRetry: document.getElementById('retryBtn'),
+        
+        // Multiplayer
+        modeRadios: document.getElementsByName('gameMode'),
+        multiSetup: document.getElementById('multiplayerSetup'),
+        btnCreateRoom: document.getElementById('createRoomBtn'),
+        btnJoinRoom: document.getElementById('joinRoomBtn'),
+        joinCodeInput: document.getElementById('joinCodeInput'),
+        multiStatus: document.getElementById('multiStatusText')
     };
 
     // ===== INITIALIZATION =====
@@ -52,7 +68,23 @@ document.addEventListener('DOMContentLoaded', () => {
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
         
-        ui.btnStart.addEventListener('click', startLevel);
+        ui.btnStart.addEventListener('click', () => {
+            if (state.gameMode === 'versus' && !state.conn) {
+                alert("대결 모드에서는 방을 만들거나 접속해야 시작할 수 있습니다!");
+                return;
+            }
+            if (state.gameMode === 'versus' && state.isHost) {
+                state.numNodes = Math.min(3 + state.level, 8); 
+                generateNodes();
+                generateMatrix();
+                state.conn.send({ type: 'start_game', nodes: state.nodes, adjMatrix: state.adjMatrix, numNodes: state.numNodes, level: state.level });
+                startLevel(true);
+            } else if (state.gameMode !== 'versus') {
+                startLevel(true);
+            } else {
+                alert("방장이 게임을 시작할 때까지 기다려주세요.");
+            }
+        });
         ui.btnReset.addEventListener('click', resetRoute);
         ui.btnNext.addEventListener('click', nextLevel);
         ui.btnRetry.addEventListener('click', resetGame);
@@ -60,6 +92,21 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas.addEventListener('mousedown', handleCanvasClick);
         canvas.addEventListener('mousemove', handleCanvasMove);
         canvas.addEventListener('mouseup', () => isDragging = false);
+        
+        // Mode Selection
+        ui.modeRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                state.gameMode = e.target.value;
+                if (state.gameMode === 'versus') {
+                    ui.multiSetup.classList.remove('hidden');
+                } else {
+                    ui.multiSetup.classList.add('hidden');
+                }
+            });
+        });
+        
+        ui.btnCreateRoom.addEventListener('click', initHost);
+        ui.btnJoinRoom.addEventListener('click', initGuest);
         
         // 탭 리스너
         document.querySelectorAll('.tab-btn').forEach(tab => {
@@ -72,37 +119,99 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ===== PEERJS MULTIPLAYER =====
+    function initHost() {
+        ui.multiStatus.textContent = "방 생성 중...";
+        state.peer = new Peer();
+        state.peer.on('open', (id) => {
+            state.roomId = id.substring(0, 5).toUpperCase();
+            ui.multiStatus.textContent = `방 생성 완료! 초대 코드: ${state.roomId}`;
+            state.isHost = true;
+            
+            state.peer.destroy();
+            state.peer = new Peer(state.roomId);
+            state.peer.on('connection', (conn) => {
+                state.conn = conn;
+                setupConnection();
+                ui.multiStatus.textContent = `친구가 접속했습니다! [게임 시작]을 눌러주세요.`;
+            });
+        });
+    }
+    
+    function initGuest() {
+        const code = ui.joinCodeInput.value.trim().toUpperCase();
+        if (!code) return alert("코드를 입력하세요!");
+        ui.multiStatus.textContent = "접속 중...";
+        state.peer = new Peer();
+        state.peer.on('open', () => {
+            state.conn = state.peer.connect(code);
+            state.conn.on('open', () => {
+                state.isHost = false;
+                setupConnection();
+                ui.multiStatus.textContent = "방 접속 완료! 방장의 시작을 기다리세요.";
+            });
+        });
+    }
+    
+    function setupConnection() {
+        state.conn.on('data', (data) => {
+            if (data.type === 'start_game') {
+                state.nodes = data.nodes;
+                state.adjMatrix = data.adjMatrix;
+                state.numNodes = data.numNodes;
+                state.level = data.level;
+                startLevel(false);
+            } else if (data.type === 'route_update') {
+                state.opponentRoute = data.route;
+                drawMap();
+            } else if (data.type === 'finish') {
+                state.opponentFinished = true;
+                state.opponentDist = data.dist;
+                checkVersusEnd();
+            }
+        });
+    }
+
     // ===== GAME LOOP =====
-    function startLevel() {
+    function startLevel(shouldGenerate = true) {
         ui.startOverlay.classList.add('hidden');
         ui.gameOverlay.classList.add('hidden');
         
-        // 레벨별 노드 수 설정 (최대 8개)
-        state.numNodes = Math.min(3 + state.level, 8); 
+        if (shouldGenerate) {
+            state.numNodes = Math.min(3 + state.level, 8); 
+            generateNodes();
+            generateMatrix();
+            if (state.gameMode === 'timeattack') {
+                spawnSpecialRoads();
+            }
+        } else {
+            renderMatrixHTML();
+        }
         
-        // 시간 설정 (거점 당 3초)
-        state.timeLeft = (state.numNodes - 1) * 3.0; 
+        // 모드별 시간 설정
+        if (state.gameMode === 'timeattack') {
+            state.timeLeft = (state.numNodes - 1) * 2.0; 
+        } else if (state.gameMode === 'normal' || state.gameMode === 'perfect' || state.gameMode === 'versus') {
+            state.timeLeft = (state.numNodes - 1) * 5.0; 
+        }
         
-        generateNodes();
-        generateMatrix();
         resetRoute();
         
         state.isPlaying = true;
         state.isGameOver = false;
+        state.opponentRoute = [];
+        state.opponentFinished = false;
         
-        // 보스 모드 (레벨 4부터, 거점 7개)
         if (state.numNodes >= 7) {
             document.body.classList.add('boss-mode');
         } else {
             document.body.classList.remove('boss-mode');
         }
 
-        // UI 업데이트
         ui.level.textContent = state.level;
         ui.score.textContent = state.score;
         updateTimerDisplay();
         
-        // 타이머 시작
         clearInterval(state.timerId);
         clearInterval(state.jamTimerId);
         
@@ -110,14 +219,13 @@ document.addEventListener('DOMContentLoaded', () => {
             state.timeLeft -= 0.1;
             if (state.timeLeft <= 0) {
                 state.timeLeft = 0;
-                endGame(false, "TIME OVER");
+                endGame(false, "TIME OVER", null, "시간이 다 되었습니다!");
             }
             updateTimerDisplay();
         }, 100);
         
-        // 교통 체증 이벤트 (랜덤)
-        if (state.level >= 2) {
-            state.jamTimerId = setInterval(triggerTrafficJam, 4000 + Math.random() * 3000);
+        if (state.gameMode === 'timeattack' && state.level >= 2) {
+            state.jamTimerId = setInterval(triggerTrafficJam, 3000 + Math.random() * 3000);
         }
         
         requestAnimationFrame(gameLoop);
@@ -128,7 +236,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const symbols = ['🏫', '📚', '🛒', '🌲', '🏥', '🏭', '🏟️'];
         
         for (let i = 1; i < state.numNodes; i++) {
-            // 랜덤 위치 생성하되 너무 겹치지 않게
             let x, y, valid;
             let attempts = 0;
             do {
@@ -159,6 +266,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function generateMatrix() {
         state.adjMatrix = Array(state.numNodes).fill(null).map(() => Array(state.numNodes).fill(0));
+        for (let i = 0; i < state.numNodes; i++) {
+            for (let j = 0; j < state.numNodes; j++) {
+                if (i === j) {
+                    state.adjMatrix[i][j] = 0;
+                } else {
+                    const dx = state.nodes[i].x - state.nodes[j].x;
+                    const dy = state.nodes[i].y - state.nodes[j].y;
+                    const dist = parseFloat((Math.sqrt(dx*dx + dy*dy) * 20).toFixed(1));
+                    state.adjMatrix[i][j] = dist;
+                }
+            }
+        }
+        renderMatrixHTML();
+    }
+    
+    function renderMatrixHTML() {
         let html = '<tr><th>거점</th>';
         for(let i=0; i<state.numNodes; i++) html += `<th>${state.nodes[i].symbol}</th>`;
         html += '</tr>';
@@ -167,19 +290,46 @@ document.addEventListener('DOMContentLoaded', () => {
             html += `<tr><th>${state.nodes[i].symbol}</th>`;
             for (let j = 0; j < state.numNodes; j++) {
                 if (i === j) {
-                    state.adjMatrix[i][j] = 0;
                     html += `<td class="diagonal">-</td>`;
                 } else {
-                    const dx = state.nodes[i].x - state.nodes[j].x;
-                    const dy = state.nodes[i].y - state.nodes[j].y;
-                    const dist = parseFloat((Math.sqrt(dx*dx + dy*dy) * 20).toFixed(1));
-                    state.adjMatrix[i][j] = dist;
-                    html += `<td id="cell-${i}-${j}">${dist}</td>`;
+                    html += `<td id="cell-${i}-${j}">${state.adjMatrix[i][j].toFixed(1)}</td>`;
                 }
             }
             html += '</tr>';
         }
         ui.matrixTable.innerHTML = html;
+    }
+    
+    function spawnSpecialRoads() {
+        let edges = [];
+        for(let i=0; i<state.numNodes; i++) {
+            for(let j=i+1; j<state.numNodes; j++) {
+                edges.push([i, j]);
+            }
+        }
+        edges.sort(() => Math.random() - 0.5);
+        if(edges.length >= 2) {
+            let [b_u, b_v] = edges[0];
+            let [p_u, p_v] = edges[1];
+            
+            state.adjMatrix[b_u][b_v] = parseFloat((state.adjMatrix[b_u][b_v] * 0.3).toFixed(1));
+            state.adjMatrix[b_v][b_u] = state.adjMatrix[b_u][b_v];
+            
+            state.adjMatrix[p_u][p_v] = parseFloat((state.adjMatrix[p_u][p_v] * 2.5).toFixed(1));
+            state.adjMatrix[p_v][p_u] = state.adjMatrix[p_u][p_v];
+            
+            renderMatrixHTML();
+            
+            let bc1 = document.getElementById(`cell-${b_u}-${b_v}`);
+            let bc2 = document.getElementById(`cell-${b_v}-${b_u}`);
+            if(bc1) bc1.classList.add('bonus-road');
+            if(bc2) bc2.classList.add('bonus-road');
+            
+            let pc1 = document.getElementById(`cell-${p_u}-${p_v}`);
+            let pc2 = document.getElementById(`cell-${p_v}-${p_u}`);
+            if(pc1) pc1.classList.add('penalty-road');
+            if(pc2) pc2.classList.add('penalty-road');
+        }
     }
 
     // ===== ROUTE LOGIC =====
@@ -201,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         
-        const radius = 25; // 히트박스 크기
+        const radius = 25; 
         for (let i = 0; i < state.numNodes; i++) {
             const nx = state.nodes[i].x * canvas.width;
             const ny = state.nodes[i].y * canvas.height;
@@ -218,7 +368,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const lastNode = state.myRoute[state.myRoute.length - 1];
         
         if (nodeId === 0) {
-            // 기지 복귀
             if (state.myRoute.length === state.numNodes && lastNode !== 0) {
                 state.myRoute.push(0);
                 spawnParticles(state.nodes[0].x, state.nodes[0].y, '#ef4444');
@@ -226,25 +375,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 checkWin();
             }
         } else {
-            // 안 가본 거점
             if (!state.myRoute.includes(nodeId)) {
                 state.myRoute.push(nodeId);
-                
-                // 콤보 계산
-                const now = Date.now();
-                if (state.lastClickTime > 0 && (now - state.lastClickTime) < 1500) {
-                    state.combo++;
-                    showComboPopup(state.combo);
-                    state.score += (state.combo * 50);
-                    ui.score.textContent = state.score;
-                } else {
-                    state.combo = 0;
-                }
-                state.lastClickTime = now;
-                
-                // 파티클
                 spawnParticles(state.nodes[nodeId].x, state.nodes[nodeId].y, '#3b82f6');
-                
                 updateRouteUI();
             }
         }
@@ -266,7 +399,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const dist = calculateDistance(state.myRoute);
         ui.myDist.textContent = dist > 0 ? `${dist.toFixed(1)} km` : '0.0 km';
 
-        // 매트릭스 하이라이트
         document.querySelectorAll('.matrix-table td').forEach(td => td.classList.remove('highlight-edge'));
         for (let i = 0; i < state.myRoute.length - 1; i++) {
             const from = state.myRoute[i];
@@ -274,11 +406,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const cell = document.getElementById(`cell-${from}-${to}`);
             if (cell) cell.classList.add('highlight-edge');
             
-            // 대칭되는 행렬도 하이라이트
             const cellSym = document.getElementById(`cell-${to}-${from}`);
             if (cellSym) cellSym.classList.add('highlight-edge');
         }
         drawMap();
+        
+        if (state.gameMode === 'versus' && state.conn) {
+            state.conn.send({ type: 'route_update', route: state.myRoute });
+        }
     }
 
     function calculateDistance(routeArr) {
@@ -293,41 +428,87 @@ document.addEventListener('DOMContentLoaded', () => {
     function checkWin() {
         clearInterval(state.timerId);
         state.isPlaying = false;
-        state.isGameOver = true;
         
         const myDist = calculateDistance(state.myRoute);
         const optDist = findOptimalRoute();
         
+        if (state.gameMode === 'versus') {
+            state.conn.send({ type: 'finish', dist: myDist });
+            state.isGameOver = true;
+            checkVersusEnd();
+            return;
+        }
+        
+        state.isGameOver = true;
+        
         const diff = myDist - optDist;
         const diffPercent = (diff / optDist) * 100;
         
-        if (diff <= 0.1) {
-            endGame(true, "PERFECT!", optDist);
-        } else if (diffPercent <= 10) {
-            endGame(true, "GREAT", optDist);
+        if (state.gameMode === 'perfect') {
+            if (Math.abs(diff) > 0.1) {
+                endGame(false, "PERFECT FAILED", optDist, `오차: ${diff.toFixed(1)}km. 완벽한 최적화가 아닙니다.`);
+            } else {
+                endGame(true, "PERFECT CLEAR", optDist, "인간 승리! 알고리즘과 100% 일치합니다.");
+            }
         } else {
-            endGame(false, "GAME OVER", optDist);
+            if (diff <= 0.1) {
+                endGame(true, "PERFECT!", optDist, "알고리즘과 완벽히 일치합니다.");
+            } else if (diffPercent <= 10) {
+                endGame(true, "GREAT", optDist, `오차: ${diff.toFixed(1)}km`);
+            } else {
+                endGame(false, "GAME OVER", optDist, `최적화 실패. 알고리즘이 ${diff.toFixed(1)}km 빠릅니다.`);
+            }
+        }
+    }
+    
+    function checkVersusEnd() {
+        if (state.isGameOver && state.opponentFinished) {
+            const myDist = calculateDistance(state.myRoute);
+            const optDist = findOptimalRoute();
+            
+            let title = "";
+            let desc = "";
+            if (Math.abs(myDist - state.opponentDist) < 0.1) {
+                title = "DRAW";
+                desc = "무승부! 동일한 거리를 찾았습니다.";
+            } else if (myDist < state.opponentDist) {
+                title = "YOU WIN!";
+                desc = `나: ${myDist.toFixed(1)}km / 상대: ${state.opponentDist.toFixed(1)}km`;
+            } else {
+                title = "YOU LOSE";
+                desc = `상대방이 더 최적화된 경로를 찾았습니다! (${state.opponentDist.toFixed(1)}km)`;
+            }
+            
+            endGame(myDist <= state.opponentDist, title, optDist, desc);
+        } else if (state.isGameOver && !state.opponentFinished) {
+            ui.gameOverlay.classList.remove('hidden', 'perfect', 'great', 'fail');
+            ui.gameOverlay.classList.add('great');
+            document.getElementById('overlayTitle').textContent = "WAITING...";
+            document.getElementById('overlayDesc').textContent = "상대방의 완료를 기다리는 중입니다...";
+            document.getElementById('overlayMyDist').textContent = calculateDistance(state.myRoute).toFixed(1) + ' km';
+            document.getElementById('overlayOptDist').textContent = '-';
+            ui.btnNext.classList.add('hidden');
+            ui.btnRetry.classList.add('hidden');
         }
     }
 
-    function endGame(isWin, title, optDist) {
+    function endGame(isWin, title, optDist, descText) {
         ui.gameOverlay.classList.remove('hidden', 'perfect', 'great', 'fail');
         
         const myDist = calculateDistance(state.myRoute);
         document.getElementById('overlayTitle').textContent = title;
         document.getElementById('overlayMyDist').textContent = myDist.toFixed(1) + ' km';
         document.getElementById('overlayOptDist').textContent = optDist ? optDist.toFixed(1) + ' km' : '-';
+        document.getElementById('overlayDesc').textContent = descText || '';
         
         if (isWin) {
-            ui.gameOverlay.classList.add(title === "PERFECT!" ? 'perfect' : 'great');
-            document.getElementById('overlayDesc').textContent = `알고리즘과의 오차: ${(myDist - optDist).toFixed(1)}km`;
+            ui.gameOverlay.classList.add(title.includes("PERFECT") || title === "YOU WIN!" ? 'perfect' : 'great');
             ui.btnNext.classList.remove('hidden');
             ui.btnRetry.classList.add('hidden');
             
-            // 점수 계산
             const baseScore = state.level * 1000;
             const timeBonus = Math.floor(state.timeLeft * 100);
-            const perfBonus = title === "PERFECT!" ? 500 : 0;
+            const perfBonus = title.includes("PERFECT") ? 500 : 0;
             state.score += baseScore + timeBonus + perfBonus;
             
             animateScore(state.score);
@@ -339,16 +520,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else {
             ui.gameOverlay.classList.add('fail');
-            document.getElementById('overlayDesc').textContent = optDist ? 
-                `산업공학 최적화 실패! 알고리즘이 ${(myDist - optDist).toFixed(1)}km 더 빠릅니다.` : 
-                `시간 초과! 피자가 다 식었습니다.`;
             ui.btnNext.classList.add('hidden');
             ui.btnRetry.classList.remove('hidden');
         }
     }
 
     function findOptimalRoute() {
-        // Brute Force for shortest path
         const arr = [];
         for(let i=1; i<state.numNodes; i++) arr.push(i);
         
@@ -372,13 +549,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function nextLevel() {
         state.level++;
-        startLevel();
+        if (state.gameMode === 'versus') {
+            if (state.isHost) {
+                state.numNodes = Math.min(3 + state.level, 8); 
+                generateNodes();
+                generateMatrix();
+                state.conn.send({ type: 'start_game', nodes: state.nodes, adjMatrix: state.adjMatrix, numNodes: state.numNodes, level: state.level });
+                startLevel(true);
+            } else {
+                ui.gameOverlay.classList.add('hidden');
+                ui.startOverlay.classList.remove('hidden');
+                ui.multiStatus.textContent = "방장의 다음 라운드 시작을 기다립니다...";
+            }
+        } else {
+            startLevel(true);
+        }
     }
     
     function resetGame() {
         state.level = 1;
         state.score = 0;
-        startLevel();
+        if (state.gameMode === 'versus') {
+            if (state.isHost) {
+                state.numNodes = Math.min(3 + state.level, 8); 
+                generateNodes();
+                generateMatrix();
+                state.conn.send({ type: 'start_game', nodes: state.nodes, adjMatrix: state.adjMatrix, numNodes: state.numNodes, level: state.level });
+                startLevel(true);
+            } else {
+                ui.gameOverlay.classList.add('hidden');
+                ui.startOverlay.classList.remove('hidden');
+            }
+        } else {
+            startLevel(true);
+        }
     }
 
     function updateTimerDisplay() {
@@ -386,7 +590,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function animateScore(target) {
-        const start = parseInt(ui.score.textContent);
+        const start = parseInt(ui.score.textContent) || 0;
         const duration = 1000;
         const stepTime = 20;
         const steps = duration / stepTime;
@@ -419,22 +623,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     }
-    
-    function showComboPopup(comboCount) {
-        const container = document.getElementById('comboContainer');
-        const el = document.createElement('div');
-        el.className = 'combo-popup';
-        el.textContent = comboCount + ' COMBO!';
-        container.appendChild(el);
-        setTimeout(() => el.remove(), 1000);
-    }
 
     function triggerTrafficJam() {
         if (!state.isPlaying || state.isGameOver) return;
-        // 빈번하게 일어나지 않게 조절
         if (Math.random() > 0.6) return; 
 
-        // 안 가본 경로 중 하나 랜덤 선택
         let availableEdges = [];
         for (let i = 0; i < state.numNodes; i++) {
             for (let j = i + 1; j < state.numNodes; j++) {
@@ -446,12 +639,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const edge = availableEdges[Math.floor(Math.random() * availableEdges.length)];
         const [u, v] = edge;
         
-        // 가중치 증가
-        const extraDist = parseFloat((Math.random() * 5 + 2).toFixed(1));
-        state.adjMatrix[u][v] += extraDist;
-        state.adjMatrix[v][u] += extraDist;
+        const extraDist = parseFloat((Math.random() * 5 + 5).toFixed(1));
+        state.adjMatrix[u][v] = parseFloat((state.adjMatrix[u][v] + extraDist).toFixed(1));
+        state.adjMatrix[v][u] = state.adjMatrix[u][v];
         
-        // 테이블 업데이트 및 하이라이트
         const cell1 = document.getElementById(`cell-${u}-${v}`);
         const cell2 = document.getElementById(`cell-${v}-${u}`);
         if (cell1) { cell1.textContent = state.adjMatrix[u][v].toFixed(1); cell1.classList.add('jammed'); }
@@ -462,21 +653,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cell2) cell2.classList.remove('jammed');
         }, 3000);
 
-        // 알림
         const noti = document.getElementById('eventNotification');
         noti.classList.remove('hidden');
         document.body.classList.add('shake-effect');
         setTimeout(() => document.body.classList.remove('shake-effect'), 500);
         setTimeout(() => noti.classList.add('hidden'), 2500);
         
-        // 경로 거리 재계산 (이미 지난 경로에 영향이 갔다면 갱신)
         updateRouteUI();
     }
     
     function gameLoop() {
         if (!state.isPlaying && !state.isGameOver) return;
         
-        // 오토바이 이동 애니메이션
         if (state.isGameOver && state.myRoute.length === state.numNodes + 1) {
             state.avatarProgress += 0.02;
             if (state.avatarProgress > state.myRoute.length - 1) {
@@ -484,7 +672,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // 파티클 업데이트
         for (let i = state.particles.length - 1; i >= 0; i--) {
             let p = state.particles[i];
             p.x += p.vx;
@@ -525,6 +712,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.lineTo(state.nodes[j].x * w, state.nodes[j].y * h);
                 ctx.stroke();
             }
+        }
+        
+        // 상대방 경로 (고스트)
+        if (state.opponentRoute && state.opponentRoute.length > 1) {
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.3)'; // Green transparent
+            ctx.lineWidth = 6;
+            for (let i = 0; i < state.opponentRoute.length - 1; i++) {
+                const from = state.nodes[state.opponentRoute[i]];
+                const to = state.nodes[state.opponentRoute[i+1]];
+                if(!from || !to) continue;
+                ctx.moveTo(from.x * w, from.y * h);
+                ctx.lineTo(to.x * w, to.y * h);
+            }
+            ctx.stroke();
         }
         
         // 2. 내 경로
@@ -569,7 +771,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fillStyle = i === 0 ? '#ef4444' : '#1e293b';
             ctx.fill();
             
-            // 테두리 강조
             ctx.strokeStyle = i === 0 ? '#fca5a5' : '#475569';
             if (state.myRoute.includes(i) && i !== 0) ctx.strokeStyle = '#3b82f6';
             ctx.lineWidth = 2;
