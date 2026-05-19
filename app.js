@@ -2,10 +2,92 @@
  * TSP 게임화 로직 (Brute Force Algorithm) + 멀티플레이어 + 다중 모드
  */
 
+class SoundEngine {
+    constructor() {
+        this.ctx = null;
+        this.bgmOsc = null;
+        this.bgmGain = null;
+        this.isMuted = false;
+    }
+    
+    initContext() {
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+    }
+    
+    initBGM() {
+        this.initContext();
+        if(this.isMuted) return;
+        if(this.bgmOsc) this.stopBGM();
+        
+        this.bgmOsc = this.ctx.createOscillator();
+        this.bgmGain = this.ctx.createGain();
+        this.bgmOsc.type = 'sawtooth';
+        this.bgmOsc.frequency.setValueAtTime(110, this.ctx.currentTime);
+        this.bgmGain.gain.setValueAtTime(0.03, this.ctx.currentTime);
+        
+        let lfo = this.ctx.createOscillator();
+        lfo.frequency.value = 2;
+        let lfoGain = this.ctx.createGain();
+        lfoGain.gain.value = 5;
+        lfo.connect(lfoGain);
+        lfoGain.connect(this.bgmOsc.frequency);
+        lfo.start();
+        
+        this.bgmOsc.connect(this.bgmGain);
+        this.bgmGain.connect(this.ctx.destination);
+        this.bgmOsc.start();
+    }
+    
+    stopBGM() {
+        if(this.bgmOsc) { this.bgmOsc.stop(); this.bgmOsc = null; }
+    }
+    
+    playSFX(type) {
+        this.initContext();
+        if(this.isMuted) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        
+        const now = this.ctx.currentTime;
+        if (type === 'click') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(600, now);
+            osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+            osc.start(now);
+            osc.stop(now + 0.1);
+        } else if (type === 'win') {
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(440, now);
+            osc.frequency.setValueAtTime(554.37, now + 0.1);
+            osc.frequency.setValueAtTime(659.25, now + 0.2);
+            osc.frequency.setValueAtTime(880, now + 0.3);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.linearRampToValueAtTime(0, now + 0.6);
+            osc.start(now);
+            osc.stop(now + 0.6);
+        } else if (type === 'lose') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(200, now);
+            osc.frequency.exponentialRampToValueAtTime(50, now + 0.5);
+            gain.gain.setValueAtTime(0.1, now);
+            gain.gain.linearRampToValueAtTime(0, now + 0.5);
+            osc.start(now);
+            osc.stop(now + 0.5);
+        }
+    }
+}
+const sound = new SoundEngine();
+
 document.addEventListener('DOMContentLoaded', () => {
     // ===== GAME STATE =====
     let state = {
         level: 1,
+        stack: 0,
         score: 0,
         bestScore: localStorage.getItem('tspBestScore') || 0,
         timeLeft: 0,
@@ -28,7 +110,8 @@ document.addEventListener('DOMContentLoaded', () => {
         isHost: false,
         opponentRoute: [],
         opponentFinished: false,
-        opponentDist: 0
+        opponentDist: 0,
+        guestReady: false
     };
 
     // ===== DOM ELEMENTS =====
@@ -37,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const ui = {
         level: document.getElementById('levelDisplay'),
+        stack: document.getElementById('stackDisplay'),
         score: document.getElementById('scoreDisplay'),
         bestScore: document.getElementById('bestScoreDisplay'),
         time: document.getElementById('timeDisplay'),
@@ -65,16 +149,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // ===== INITIALIZATION =====
     function init() {
         ui.bestScore.textContent = state.bestScore;
+        if(ui.stack) updateStackUI();
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
         
         ui.btnStart.addEventListener('click', () => {
+            sound.initBGM(); // 첫 클릭 시 BGM 재생
             if (state.gameMode === 'versus' && !state.conn) {
                 alert("대결 모드에서는 방을 만들거나 접속해야 시작할 수 있습니다!");
                 return;
             }
             if (state.gameMode === 'versus' && !state.isHost) {
                 alert("방장이 게임을 시작할 때까지 기다려주세요.");
+                return;
+            }
+            if (state.gameMode === 'versus' && state.isHost && !state.guestReady) {
+                alert("참가자가 아직 준비되지 않았습니다. 조금만 기다려주세요.");
                 return;
             }
             startLevel(true);
@@ -152,13 +242,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.isHost = false;
                 setupConnection();
                 ui.multiStatus.textContent = "방 접속 완료! 방장의 시작을 기다리세요.";
+                state.conn.send({ type: 'guest_ready' });
             });
         });
     }
     
     function setupConnection() {
         state.conn.on('data', (data) => {
-            if (data.type === 'start_game') {
+            if (data.type === 'guest_ready') {
+                state.guestReady = true;
+                if (state.isHost) ui.multiStatus.textContent = "참가자 준비 완료! [게임 시작]을 눌러주세요.";
+            } else if (data.type === 'start_game') {
                 state.nodes = data.nodes;
                 state.adjMatrix = data.adjMatrix;
                 state.numNodes = data.numNodes;
@@ -379,6 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function addNodeToRoute(nodeId) {
+        sound.playSFX('click');
         const lastNode = state.myRoute[state.myRoute.length - 1];
         
         if (nodeId === 0) {
@@ -506,6 +601,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function updateStackUI() {
+        let maxStack = 3;
+        let s = state.stack;
+        if(s > maxStack) s = maxStack;
+        let html = '';
+        for(let i=0; i<s; i++) html += '🟩';
+        for(let i=s; i<maxStack; i++) html += '⬜';
+        if(ui.stack) ui.stack.textContent = html;
+    }
+
     function endGame(isWin, title, optDist, descText) {
         ui.gameOverlay.classList.remove('hidden', 'perfect', 'great', 'fail');
         
@@ -516,6 +621,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('overlayDesc').textContent = descText || '';
         
         if (isWin) {
+            sound.playSFX('win');
+            let addStack = title.includes("PERFECT") || title.includes("WIN") ? 2 : 1;
+            state.stack += addStack;
+            
             ui.gameOverlay.classList.add(title.includes("PERFECT") || title === "YOU WIN!" ? 'perfect' : 'great');
             ui.btnNext.classList.remove('hidden');
             ui.btnRetry.classList.add('hidden');
@@ -533,10 +642,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 ui.bestScore.textContent = state.bestScore;
             }
         } else {
+            sound.playSFX('lose');
+            if (state.gameMode === 'perfect') {
+                state.stack = 0;
+                state.level = 1;
+            } else {
+                state.stack = Math.max(0, state.stack - 1);
+            }
             ui.gameOverlay.classList.add('fail');
             ui.btnNext.classList.add('hidden');
             ui.btnRetry.classList.remove('hidden');
         }
+        updateStackUI();
     }
 
     function findOptimalRoute() {
@@ -562,7 +679,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function nextLevel() {
-        state.level++;
+        if (state.stack >= 3) {
+            state.level++;
+            state.stack -= 3;
+        }
+        updateStackUI();
+        
         if (state.gameMode === 'versus' && !state.isHost) {
             ui.gameOverlay.classList.add('hidden');
             ui.startOverlay.classList.remove('hidden');
@@ -575,6 +697,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetGame() {
         state.level = 1;
         state.score = 0;
+        state.stack = 0;
+        updateStackUI();
         if (state.gameMode === 'versus' && !state.isHost) {
             ui.gameOverlay.classList.add('hidden');
             ui.startOverlay.classList.remove('hidden');
