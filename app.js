@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 모드별 시간 설정
         if (state.gameMode === 'timeattack') {
             state.timeLeft = (state.numNodes - 1) * 2.0; 
-        } else if (state.gameMode === 'normal' || state.gameMode === 'perfect' || state.gameMode === 'versus') {
+        } else {
             state.timeLeft = (state.numNodes - 1) * 5.0; 
         }
         
@@ -553,7 +553,8 @@ document.addEventListener('DOMContentLoaded', () => {
         state.score = 0;
         state.stack = 0;
         updateStackUI();
-        startLevel(true);
+        ui.gameOverlay.classList.add('hidden');
+        ui.startOverlay.classList.remove('hidden');
     }
 
     function updateTimerDisplay() {
