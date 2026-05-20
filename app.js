@@ -675,11 +675,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const h = canvas.height;
         
         // 1. 간선 그리기
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-        ctx.lineWidth = 1;
         for (let i = 0; i < state.numNodes; i++) {
             for (let j = i + 1; j < state.numNodes; j++) {
+                const dx = state.nodes[i].x - state.nodes[j].x;
+                const dy = state.nodes[i].y - state.nodes[j].y;
+                const baseDist = Math.sqrt(dx*dx + dy*dy) * 20;
+                const currentDist = state.adjMatrix[i][j];
+                
+                let strokeColor = 'rgba(255, 255, 255, 0.05)';
+                let lineWidth = 1;
+                
+                // 럭키(chaos) 모드가 아닐 때만 가중치 시각화
+                if (state.gameMode !== 'chaos') {
+                    if (currentDist < baseDist * 0.5) { // 보너스 도로 (0.3배)
+                        strokeColor = 'rgba(16, 185, 129, 0.8)'; // Green
+                        lineWidth = 3;
+                    } else if (currentDist > baseDist * 1.5) { // 페널티 도로 (2.5배) 또는 교통체증
+                        strokeColor = 'rgba(239, 68, 68, 0.8)'; // Red
+                        lineWidth = 3;
+                    }
+                }
+                
                 ctx.beginPath();
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = lineWidth;
                 ctx.moveTo(state.nodes[i].x * w, state.nodes[i].y * h);
                 ctx.lineTo(state.nodes[j].x * w, state.nodes[j].y * h);
                 ctx.stroke();
