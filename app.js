@@ -102,16 +102,8 @@ document.addEventListener('DOMContentLoaded', () => {
         particles: [],
         avatarProgress: 0,
         
-        // Multi mode & PeerJS
-        gameMode: 'normal',
-        peer: null,
-        conn: null,
-        roomId: null,
-        isHost: false,
-        opponentRoute: [],
-        opponentFinished: false,
-        opponentDist: 0,
-        guestReady: false
+        // Game Mode
+        gameMode: 'normal'
     };
 
     // ===== DOM ELEMENTS =====
@@ -138,12 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnRetry: document.getElementById('retryBtn'),
         
         // Multiplayer
-        modeRadios: document.getElementsByName('gameMode'),
-        multiSetup: document.getElementById('multiplayerSetup'),
-        btnCreateRoom: document.getElementById('createRoomBtn'),
-        btnJoinRoom: document.getElementById('joinRoomBtn'),
-        joinCodeInput: document.getElementById('joinCodeInput'),
-        multiStatus: document.getElementById('multiStatusText')
+        modeRadios: document.getElementsByName('gameMode')
     };
 
     // ===== INITIALIZATION =====
@@ -155,18 +142,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         ui.btnStart.addEventListener('click', () => {
             sound.initBGM(); // 첫 클릭 시 BGM 재생
-            if (state.gameMode === 'versus' && !state.conn) {
-                alert("대결 모드에서는 방을 만들거나 접속해야 시작할 수 있습니다!");
-                return;
-            }
-            if (state.gameMode === 'versus' && !state.isHost) {
-                alert("방장이 게임을 시작할 때까지 기다려주세요.");
-                return;
-            }
-            if (state.gameMode === 'versus' && state.isHost && !state.guestReady) {
-                alert("참가자가 아직 준비되지 않았습니다. 조금만 기다려주세요.");
-                return;
-            }
             startLevel(true);
         });
         ui.btnReset.addEventListener('click', resetRoute);
@@ -181,16 +156,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ui.modeRadios.forEach(radio => {
             radio.addEventListener('change', (e) => {
                 state.gameMode = e.target.value;
-                if (state.gameMode === 'versus') {
-                    ui.multiSetup.classList.remove('hidden');
-                } else {
-                    ui.multiSetup.classList.add('hidden');
-                }
             });
         });
-        
-        ui.btnCreateRoom.addEventListener('click', initHost);
-        ui.btnJoinRoom.addEventListener('click', initGuest);
         
         // 탭 리스너
         document.querySelectorAll('.tab-btn').forEach(tab => {
@@ -203,94 +170,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ===== PEERJS MULTIPLAYER =====
-    function initHost() {
-        ui.multiStatus.textContent = "방 생성 중...";
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let code = '';
-        for(let i=0; i<5; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
-        
-        state.roomId = code;
-        state.peer = new Peer(state.roomId);
-        
-        state.peer.on('open', (id) => {
-            ui.multiStatus.textContent = `방 생성 완료! 초대 코드: ${state.roomId}`;
-            state.isHost = true;
-        });
-
-        state.peer.on('connection', (conn) => {
-            conn.on('open', () => {
-                state.conn = conn;
-                setupConnection();
-                ui.multiStatus.textContent = `친구가 접속했습니다! [게임 시작]을 눌러주세요.`;
-            });
-        });
-    }
-    
-    function initGuest() {
-        const code = ui.joinCodeInput.value.trim().toUpperCase();
-        if (!code) return alert("코드를 입력하세요!");
-        
-        state.gameMode = 'versus';
-        document.querySelector('input[value="versus"]').checked = true;
-        
-        ui.multiStatus.textContent = "접속 중...";
-        state.peer = new Peer();
-        state.peer.on('open', () => {
-            state.conn = state.peer.connect(code, { reliable: true });
-            state.conn.on('open', () => {
-                state.isHost = false;
-                setupConnection();
-                ui.multiStatus.textContent = "방 접속 완료! 방장의 시작을 기다리세요.";
-                state.conn.send({ type: 'guest_ready' });
-            });
-        });
-    }
-    
-    function setupConnection() {
-        state.conn.on('data', (data) => {
-            if (data.type === 'guest_ready') {
-                state.guestReady = true;
-                if (state.isHost) ui.multiStatus.textContent = "참가자 준비 완료! [게임 시작]을 눌러주세요.";
-            } else if (data.type === 'start_game') {
-                state.nodes = data.nodes;
-                state.adjMatrix = data.adjMatrix;
-                state.numNodes = data.numNodes;
-                state.level = data.level;
-                startLevel(false);
-            } else if (data.type === 'route_update') {
-                state.opponentRoute = data.route;
-                drawMap();
-            } else if (data.type === 'finish') {
-                state.opponentFinished = true;
-                state.opponentDist = data.dist;
-                checkVersusEnd();
-            }
-        });
-    }
-
     // ===== GAME LOOP =====
     function startLevel(shouldGenerate = true) {
         ui.startOverlay.classList.add('hidden');
         ui.gameOverlay.classList.add('hidden');
         
         if (shouldGenerate) {
-            state.numNodes = Math.min(3 + state.level, 8); 
+            if (state.gameMode === 'crazy') {
+                state.numNodes = Math.min(10 + Math.floor((state.level - 1) / 2), 12);
+            } else {
+                state.numNodes = Math.min(3 + state.level, 8); 
+            }
             generateNodes();
             generateMatrix();
             if (state.gameMode === 'timeattack') {
                 spawnSpecialRoads();
-            }
-            
-            // 호스트일 경우, 맵 생성 직후 게스트에게 전송
-            if (state.gameMode === 'versus' && state.isHost && state.conn) {
-                state.conn.send({ 
-                    type: 'start_game', 
-                    nodes: state.nodes, 
-                    adjMatrix: state.adjMatrix, 
-                    numNodes: state.numNodes, 
-                    level: state.level 
-                });
             }
         } else {
             renderMatrixHTML();
@@ -381,7 +275,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     const dx = state.nodes[i].x - state.nodes[j].x;
                     const dy = state.nodes[i].y - state.nodes[j].y;
-                    const dist = parseFloat((Math.sqrt(dx*dx + dy*dy) * 20).toFixed(1));
+                    let dist = parseFloat((Math.sqrt(dx*dx + dy*dy) * 20).toFixed(1));
+                    if (state.gameMode === 'chaos') {
+                        // 완전히 무작위 운빨 가중치 (거리와 무관)
+                        let multiplier = 0.2 + Math.random() * 2.8; 
+                        dist = parseFloat((dist * multiplier).toFixed(1));
+                    }
                     state.adjMatrix[i][j] = dist;
                 }
             }
@@ -400,7 +299,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (i === j) {
                     html += `<td class="diagonal">-</td>`;
                 } else {
-                    html += `<td id="cell-${i}-${j}">${state.adjMatrix[i][j].toFixed(1)}</td>`;
+                    if (state.gameMode === 'chaos') {
+                        html += `<td id="cell-${i}-${j}" style="color: #a78bfa; font-weight: bold; text-shadow: 0 0 5px #a78bfa;">???</td>`;
+                    } else {
+                        html += `<td id="cell-${i}-${j}">${state.adjMatrix[i][j].toFixed(1)}</td>`;
+                    }
                 }
             }
             html += '</tr>';
@@ -519,10 +422,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cellSym) cellSym.classList.add('highlight-edge');
         }
         drawMap();
-        
-        if (state.gameMode === 'versus' && state.conn) {
-            state.conn.send({ type: 'route_update', route: state.myRoute });
-        }
     }
 
     function calculateDistance(routeArr) {
@@ -540,13 +439,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const myDist = calculateDistance(state.myRoute);
         const optDist = findOptimalRoute();
-        
-        if (state.gameMode === 'versus') {
-            state.conn.send({ type: 'finish', dist: myDist });
-            state.isGameOver = true;
-            checkVersusEnd();
-            return;
-        }
         
         state.isGameOver = true;
         
@@ -567,37 +459,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 endGame(false, "GAME OVER", optDist, `최적화 실패. 알고리즘이 ${diff.toFixed(1)}km 빠릅니다.`);
             }
-        }
-    }
-    
-    function checkVersusEnd() {
-        if (state.isGameOver && state.opponentFinished) {
-            const myDist = calculateDistance(state.myRoute);
-            const optDist = findOptimalRoute();
-            
-            let title = "";
-            let desc = "";
-            if (Math.abs(myDist - state.opponentDist) < 0.1) {
-                title = "DRAW";
-                desc = "무승부! 동일한 거리를 찾았습니다.";
-            } else if (myDist < state.opponentDist) {
-                title = "YOU WIN!";
-                desc = `나: ${myDist.toFixed(1)}km / 상대: ${state.opponentDist.toFixed(1)}km`;
-            } else {
-                title = "YOU LOSE";
-                desc = `상대방이 더 최적화된 경로를 찾았습니다! (${state.opponentDist.toFixed(1)}km)`;
-            }
-            
-            endGame(myDist <= state.opponentDist, title, optDist, desc);
-        } else if (state.isGameOver && !state.opponentFinished) {
-            ui.gameOverlay.classList.remove('hidden', 'perfect', 'great', 'fail');
-            ui.gameOverlay.classList.add('great');
-            document.getElementById('overlayTitle').textContent = "WAITING...";
-            document.getElementById('overlayDesc').textContent = "상대방의 완료를 기다리는 중입니다...";
-            document.getElementById('overlayMyDist').textContent = calculateDistance(state.myRoute).toFixed(1) + ' km';
-            document.getElementById('overlayOptDist').textContent = '-';
-            ui.btnNext.classList.add('hidden');
-            ui.btnRetry.classList.add('hidden');
         }
     }
 
@@ -684,14 +545,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.stack -= 3;
         }
         updateStackUI();
-        
-        if (state.gameMode === 'versus' && !state.isHost) {
-            ui.gameOverlay.classList.add('hidden');
-            ui.startOverlay.classList.remove('hidden');
-            ui.multiStatus.textContent = "방장의 다음 라운드 시작을 기다립니다...";
-        } else {
-            startLevel(true);
-        }
+        startLevel(true);
     }
     
     function resetGame() {
@@ -699,13 +553,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.score = 0;
         state.stack = 0;
         updateStackUI();
-        if (state.gameMode === 'versus' && !state.isHost) {
-            ui.gameOverlay.classList.add('hidden');
-            ui.startOverlay.classList.remove('hidden');
-            ui.multiStatus.textContent = "방장의 시작을 기다립니다...";
-        } else {
-            startLevel(true);
-        }
+        startLevel(true);
     }
 
     function updateTimerDisplay() {
@@ -835,21 +683,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.lineTo(state.nodes[j].x * w, state.nodes[j].y * h);
                 ctx.stroke();
             }
-        }
-        
-        // 상대방 경로 (고스트)
-        if (state.opponentRoute && state.opponentRoute.length > 1) {
-            ctx.beginPath();
-            ctx.strokeStyle = 'rgba(16, 185, 129, 0.3)'; // Green transparent
-            ctx.lineWidth = 6;
-            for (let i = 0; i < state.opponentRoute.length - 1; i++) {
-                const from = state.nodes[state.opponentRoute[i]];
-                const to = state.nodes[state.opponentRoute[i+1]];
-                if(!from || !to) continue;
-                ctx.moveTo(from.x * w, from.y * h);
-                ctx.lineTo(to.x * w, to.y * h);
-            }
-            ctx.stroke();
         }
         
         // 2. 내 경로

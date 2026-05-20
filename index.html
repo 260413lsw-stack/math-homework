@@ -9,7 +9,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
 
@@ -106,22 +105,19 @@
                         </div>
                     </label>
                     <label class="mode-card">
-                        <input type="radio" name="gameMode" value="versus">
+                        <input type="radio" name="gameMode" value="crazy">
                         <div class="mode-content">
-                            <h3>대결 모드 ⚔️</h3>
-                            <p>친구와 실시간으로 방을 만들어 두뇌 레이스!</p>
+                            <h3>크레이지 ☠️</h3>
+                            <p>처음부터 10+개의 거점 배치! 극악의 난이도.</p>
                         </div>
                     </label>
-                </div>
-                
-                <div id="multiplayerSetup" class="multiplayer-setup hidden">
-                    <button class="btn" id="createRoomBtn">방 만들기 (초대 코드 생성)</button>
-                    <div style="margin: 10px 0;">또는</div>
-                    <div style="display: flex; gap: 8px; justify-content: center;">
-                        <input type="text" id="joinCodeInput" placeholder="친구의 초대 코드 입력" style="padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: rgba(0,0,0,0.3); color: white;">
-                        <button class="btn btn-solve" id="joinRoomBtn" style="flex: none;">접속</button>
-                    </div>
-                    <p id="multiStatusText" style="color: #10b981; margin-top: 10px; font-weight: bold;"></p>
+                    <label class="mode-card">
+                        <input type="radio" name="gameMode" value="chaos">
+                        <div class="mode-content">
+                            <h3>럭키 모드 🍀</h3>
+                            <p>운이 모든 것을 결정합니다. 가중치가 보이지 않거나 무작위입니다!</p>
+                        </div>
+                    </label>
                 </div>
 
                 <button class="btn btn-solve" id="startGameBtn" style="font-size: 1.2rem; padding: 15px 40px; margin-top: 20px;">게임 시작 🎮</button>
