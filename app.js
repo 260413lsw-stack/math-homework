@@ -103,7 +103,13 @@ document.addEventListener('DOMContentLoaded', () => {
         avatarProgress: 0,
         
         // Game Mode
-        gameMode: 'normal'
+        gameMode: 'normal',
+
+        // Timer
+        isTimerRunning: false,
+        lastTime: 0,
+        finalTimeLeft: 0,
+        isEndGameCalled: false
     };
 
     // ===== DOM ELEMENTS =====
@@ -214,17 +220,11 @@ document.addEventListener('DOMContentLoaded', () => {
         ui.score.textContent = state.score;
         updateTimerDisplay();
         
-        clearInterval(state.timerId);
         clearInterval(state.jamTimerId);
         
-        state.timerId = setInterval(() => {
-            state.timeLeft -= 0.1;
-            if (state.timeLeft <= 0) {
-                state.timeLeft = 0;
-                endGame(false, "TIME OVER", null, "시간이 다 되었습니다!");
-            }
-            updateTimerDisplay();
-        }, 100);
+        state.isTimerRunning = true;
+        state.isEndGameCalled = false;
+        state.lastTime = performance.now();
         
         if (state.gameMode === 'timeattack' && state.level >= 2) {
             state.jamTimerId = setInterval(triggerTrafficJam, 3000 + Math.random() * 3000);
@@ -433,33 +433,69 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ===== ALGORITHM & ENDGAME =====
+    let winResult = {
+        isWin: false,
+        title: "",
+        optDist: 0,
+        descText: ""
+    };
+
     function checkWin() {
-        clearInterval(state.timerId);
+        state.finalTimeLeft = state.timeLeft;
         state.isPlaying = false;
+        state.isGameOver = true;
+        state.avatarProgress = 0;
         
         const myDist = calculateDistance(state.myRoute);
         const optDist = findOptimalRoute();
-        
-        state.isGameOver = true;
         
         const diff = myDist - optDist;
         const diffPercent = (diff / optDist) * 100;
         
         if (state.gameMode === 'perfect') {
             if (Math.abs(diff) > 0.1) {
-                endGame(false, "PERFECT FAILED", optDist, `오차: ${diff.toFixed(1)}km. 완벽한 최적화가 아닙니다.`);
+                winResult = {
+                    isWin: false,
+                    title: "PERFECT FAILED",
+                    optDist: optDist,
+                    descText: `오차: ${diff.toFixed(1)}km. 완벽한 최적화가 아닙니다.`
+                };
             } else {
-                endGame(true, "PERFECT CLEAR", optDist, "인간 승리! 알고리즘과 100% 일치합니다.");
+                winResult = {
+                    isWin: true,
+                    title: "PERFECT CLEAR",
+                    optDist: optDist,
+                    descText: "인간 승리! 알고리즘과 100% 일치합니다."
+                };
             }
         } else {
             if (diff <= 0.1) {
-                endGame(true, "PERFECT!", optDist, "알고리즘과 완벽히 일치합니다.");
+                winResult = {
+                    isWin: true,
+                    title: "PERFECT!",
+                    optDist: optDist,
+                    descText: "알고리즘과 완벽히 일치합니다."
+                };
             } else if (diffPercent <= 10) {
-                endGame(true, "GREAT", optDist, `오차: ${diff.toFixed(1)}km`);
+                winResult = {
+                    isWin: true,
+                    title: "GREAT",
+                    optDist: optDist,
+                    descText: `오차: ${diff.toFixed(1)}km`
+                };
             } else {
-                endGame(false, "GAME OVER", optDist, `최적화 실패. 알고리즘이 ${diff.toFixed(1)}km 빠릅니다.`);
+                winResult = {
+                    isWin: false,
+                    title: "GAME OVER",
+                    optDist: optDist,
+                    descText: `최적화 실패. 알고리즘이 ${diff.toFixed(1)}km 빠릅니다.`
+                };
             }
         }
+    }
+
+    function triggerEndGameCalculation() {
+        endGame(winResult.isWin, winResult.title, winResult.optDist, winResult.descText);
     }
 
     function updateStackUI() {
@@ -491,7 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ui.btnRetry.classList.add('hidden');
             
             const baseScore = state.level * 1000;
-            const timeBonus = Math.floor(state.timeLeft * 100);
+            const timeBonus = Math.floor(state.finalTimeLeft * 100);
             const perfBonus = title.includes("PERFECT") ? 500 : 0;
             state.score += baseScore + timeBonus + perfBonus;
             
@@ -558,7 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateTimerDisplay() {
-        ui.time.textContent = state.timeLeft.toFixed(1);
+        ui.time.textContent = state.timeLeft.toFixed(2);
     }
     
     function animateScore(target) {
@@ -634,13 +670,37 @@ document.addEventListener('DOMContentLoaded', () => {
         updateRouteUI();
     }
     
-    function gameLoop() {
+    function gameLoop(timestamp) {
         if (!state.isPlaying && !state.isGameOver) return;
         
+        if (!state.lastTime) {
+            state.lastTime = timestamp || performance.now();
+        }
+        const now = timestamp || performance.now();
+        const dt = (now - state.lastTime) / 1000;
+        state.lastTime = now;
+        
+        if (state.isTimerRunning) {
+            state.timeLeft -= dt;
+            if (state.timeLeft <= 0) {
+                state.timeLeft = 0;
+                state.isTimerRunning = false;
+                state.isPlaying = false;
+                endGame(false, "TIME OVER", null, "시간이 다 되었습니다!");
+            }
+            updateTimerDisplay();
+        }
+        
         if (state.isGameOver && state.myRoute.length === state.numNodes + 1) {
-            state.avatarProgress += 0.02;
-            if (state.avatarProgress > state.myRoute.length - 1) {
+            state.avatarProgress += 0.04;
+            if (state.avatarProgress >= state.myRoute.length - 1) {
                 state.avatarProgress = state.myRoute.length - 1;
+                
+                if (!state.isEndGameCalled) {
+                    state.isEndGameCalled = true;
+                    state.isTimerRunning = false;
+                    triggerEndGameCalculation();
+                }
             }
         }
         
@@ -685,15 +745,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 let strokeColor = 'rgba(255, 255, 255, 0.05)';
                 let lineWidth = 1;
                 
-                // 럭키(chaos) 모드가 아닐 때만 가중치 시각화
-                if (state.gameMode !== 'chaos') {
-                    if (currentDist < baseDist * 0.5) { // 보너스 도로 (0.3배)
-                        strokeColor = 'rgba(16, 185, 129, 0.8)'; // Green
-                        lineWidth = 3;
-                    } else if (currentDist > baseDist * 1.5) { // 페널티 도로 (2.5배) 또는 교통체증
-                        strokeColor = 'rgba(239, 68, 68, 0.8)'; // Red
-                        lineWidth = 3;
-                    }
+                // 모든 모드에서 실제 가중치에 따른 보너스/페널티 도로 시각화 활성화
+                if (currentDist < baseDist * 0.5) { // 보너스 도로 (0.3배)
+                    strokeColor = 'rgba(16, 185, 129, 0.8)'; // Green
+                    lineWidth = 3;
+                } else if (currentDist > baseDist * 1.5) { // 페널티 도로 (2.5배) 또는 교통체증
+                    strokeColor = 'rgba(239, 68, 68, 0.8)'; // Red
+                    lineWidth = 3;
                 }
                 
                 ctx.beginPath();
