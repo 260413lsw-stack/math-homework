@@ -109,7 +109,10 @@ document.addEventListener('DOMContentLoaded', () => {
         isTimerRunning: false,
         lastTime: 0,
         finalTimeLeft: 0,
-        isEndGameCalled: false
+        isEndGameCalled: false,
+        
+        // Lucky Guide
+        hasShownLuckyGuide: false
     };
 
     // ===== DOM ELEMENTS =====
@@ -136,7 +139,11 @@ document.addEventListener('DOMContentLoaded', () => {
         btnRetry: document.getElementById('retryBtn'),
         
         // Multiplayer
-        modeRadios: document.getElementsByName('gameMode')
+        modeRadios: document.getElementsByName('gameMode'),
+        
+        // Lucky Mode Guide
+        luckyGuideOverlay: document.getElementById('luckyGuideOverlay'),
+        luckyGuideCloseBtn: document.getElementById('luckyGuideCloseBtn')
     };
 
     // ===== INITIALIZATION =====
@@ -153,6 +160,16 @@ document.addEventListener('DOMContentLoaded', () => {
         ui.btnReset.addEventListener('click', resetRoute);
         ui.btnNext.addEventListener('click', nextLevel);
         ui.btnRetry.addEventListener('click', resetGame);
+        
+        if (ui.luckyGuideCloseBtn) {
+            ui.luckyGuideCloseBtn.addEventListener('click', () => {
+                sound.playSFX('click');
+                ui.luckyGuideOverlay.classList.add('hidden');
+                state.lastTime = performance.now();
+                state.isTimerRunning = true;
+                requestAnimationFrame(gameLoop);
+            });
+        }
         
         canvas.addEventListener('mousedown', handleCanvasClick);
         canvas.addEventListener('mousemove', handleCanvasMove);
@@ -222,9 +239,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         clearInterval(state.jamTimerId);
         
-        state.isTimerRunning = true;
         state.isEndGameCalled = false;
-        state.lastTime = performance.now();
+        
+        if (state.gameMode === 'chaos' && !state.hasShownLuckyGuide) {
+            state.isTimerRunning = false;
+            if (ui.luckyGuideOverlay) ui.luckyGuideOverlay.classList.remove('hidden');
+            state.hasShownLuckyGuide = true;
+        } else {
+            state.isTimerRunning = true;
+            state.lastTime = performance.now();
+        }
         
         if (state.gameMode === 'timeattack' && state.level >= 2) {
             state.jamTimerId = setInterval(triggerTrafficJam, 3000 + Math.random() * 3000);
@@ -745,13 +769,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 let strokeColor = 'rgba(255, 255, 255, 0.05)';
                 let lineWidth = 1;
                 
-                // 모든 모드에서 실제 가중치에 따른 보너스/페널티 도로 시각화 활성화
-                if (currentDist < baseDist * 0.5) { // 보너스 도로 (0.3배)
-                    strokeColor = 'rgba(16, 185, 129, 0.8)'; // Green
-                    lineWidth = 3;
-                } else if (currentDist > baseDist * 1.5) { // 페널티 도로 (2.5배) 또는 교통체증
-                    strokeColor = 'rgba(239, 68, 68, 0.8)'; // Red
-                    lineWidth = 3;
+                // 타임어택(timeattack) 모드가 아닐 때만 실제 가중치에 따른 보너스/페널티 도로 시각화 활성화
+                if (state.gameMode !== 'timeattack') {
+                    if (currentDist < baseDist * 0.5) { // 보너스 도로 (0.3배)
+                        strokeColor = 'rgba(16, 185, 129, 0.8)'; // Green
+                        lineWidth = 3;
+                    } else if (currentDist > baseDist * 1.5) { // 페널티 도로 (2.5배) 또는 교통체증
+                        strokeColor = 'rgba(239, 68, 68, 0.8)'; // Red
+                        lineWidth = 3;
+                    }
                 }
                 
                 ctx.beginPath();
