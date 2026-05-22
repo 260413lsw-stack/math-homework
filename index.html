@@ -195,51 +195,183 @@
     <div class="concepts-tabs">
         <button class="tab-btn active" data-tab="matrix">인접 행렬</button>
         <button class="tab-btn" data-tab="perm">경우의 수 (순열)</button>
-        <button class="tab-btn" data-tab="opt">최적화 원리</button>
+        <button class="tab-btn" data-tab="opt">최적화 원리 (조합)</button>
         <button class="tab-btn" data-tab="tsp">조합 폭발</button>
     </div>
+    
+    <!-- Tab 1: 인접 행렬 -->
     <div class="tab-content active" id="tab-matrix">
         <div class="concept-card">
-            <h3>인접 행렬 (Adjacency Matrix)</h3>
-            <p>현실의 도로 네트워크를 <strong>점(Vertex)</strong>과 <strong>간선(Edge)</strong>으로 이루어진 그래프로 추상화한 뒤, 각 지점 간의 연결 관계와 거리(가중치)를 <strong>행렬</strong>로 수치화합니다.</p>
+            <h3>인접 행렬과 연결성 분석 (Adjacency Matrix & connectivity)</h3>
+            <p>현실의 도로 네트워크는 <strong>거점(Vertex)</strong>과 <strong>도로(Edge)</strong>로 이루어진 그래프로 추상화됩니다. 각 거점 간의 실제 거리(가중치)는 아래의 <strong>인접 행렬 $A$</strong>로 수치화되어 행렬 단원의 훌륭한 실생활 연구 사례가 됩니다.</p>
+            
             <div class="formula-box">
                 <code>A[i][j] = 거점 i에서 거점 j까지의 거리(km)</code><br>
-                <code>A[i][i] = 0  (자기 자신까지 거리는 0)</code><br>
-                <code>A[i][j] = A[j][i]  (무방향 그래프: 대칭 행렬)</code>
+                <code>A[i][i] = 0 (자기 자신으로 가는 경로는 거리 0)</code><br>
+                <code>A[i][j] = A[j][i] (무방향 그래프이므로 대칭행렬: A = Aᵀ)</code>
             </div>
-            <p>행렬의 <strong>거듭제곱(A²)</strong>을 계산하면 <em>2단계를 거쳐 도달 가능한 경로의 수</em>를 파악할 수 있습니다. 이것이 행렬 연산의 핵심 의미입니다.</p>
+
+            <div class="academic-insight">
+                <h4>🎓 공통수학1 교과 연계 분석</h4>
+                <p>단순 거리를 담은 행렬 $A$ 외에, 연결 여부(연결 시 1, 미연결 시 0)만을 표현하는 <strong>연결 행렬 $M$</strong>을 정의할 수 있습니다. 공통수학1에서 배우는 <strong>행렬의 곱셈과 거듭제곱</strong>을 사용하면 연결성에 숨겨진 유용한 정리를 도출할 수 있습니다.</p>
+                <p>행렬 $M^k$의 $(i, j)$ 성분은 <strong>"거점 $i$에서 출발하여 정확히 $k$단계의 도로를 거쳐 거점 $j$에 도달하는 경로의 수"</strong>를 의미합니다. 예를 들어, $M^2 = M \times M$의 성분 $c_{ij} = \sum_{k} m_{ik} m_{kj}$는 중간 경유지 $k$를 거쳐서 도달하는 2단계 경로의 수를 완벽하게 대수적으로 계산해 냅니다.</p>
+            </div>
+
+            <!-- Interactive Element: Matrix Multiplier & Path Finder -->
+            <div class="interactive-container">
+                <div class="interactive-title">🔢 실시간 연결 행렬 곱셈 ($M$ vs $M^2$ vs $M^3$)</div>
+                <p class="interactive-desc">현재 활성화된 지도의 연결 구조를 기반으로 실시간 계산된 거듭제곱 행렬입니다.</p>
+                <div class="matrix-grid">
+                    <div>
+                        <div class="matrix-grid-title">연결 행렬 $M$</div>
+                        <table class="matrix-mini-table" id="matrixM"></table>
+                    </div>
+                    <div>
+                        <div class="matrix-grid-title">2단계 경로 $M^2$</div>
+                        <table class="matrix-mini-table" id="matrixM2"></table>
+                    </div>
+                    <div>
+                        <div class="matrix-grid-title">3단계 경로 $M^3$</div>
+                        <table class="matrix-mini-table" id="matrixM3"></table>
+                    </div>
+                </div>
+
+                <div class="path-finder-ui">
+                    <div class="path-finder-row">
+                        <label>출발 거점: 
+                            <select id="pathStartNode" class="select-math"></select>
+                        </label>
+                        <label>도착 거점: 
+                            <select id="pathEndNode" class="select-math"></select>
+                        </label>
+                        <label>경로 단계: 
+                            <select id="pathSteps" class="select-math">
+                                <option value="2">2단계 경로 (M²)</option>
+                                <option value="3">3단계 경로 (M³)</option>
+                            </select>
+                        </label>
+                        <button class="btn btn-math-solve" id="findMatrixPathsBtn">경로 해석하기 🔍</button>
+                    </div>
+                    <div id="matrixPathResult" class="math-result-box">
+                        거점을 선택하고 버튼을 누르면 수학적으로 계산된 경유 경로 리스트가 출력됩니다.
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Tab 2: 경우의 수 (순열) -->
     <div class="tab-content" id="tab-perm">
         <div class="concept-card">
-            <h3>경우의 수 — 순열 (Permutation)</h3>
-            <p>배달 기지에서 출발하여 <strong>N개의 거점을 모두 방문</strong>하고 돌아오는 순서를 정할 때, 발생 가능한 모든 방문 순서의 수는 순열로 계산됩니다.</p>
+            <h3>경우의 수와 순열 (Permutation)</h3>
+            <p>배달 기지에서 출발하여 <strong>N개의 거점을 모두 방문</strong>하고 돌아오는 순서를 결정할 때, 가능한 모든 방문 순서의 가짓수는 고1 수학의 <strong>순열(Permutation)</strong> 공식으로 완벽하게 계산됩니다.</p>
+            
             <div class="formula-box">
-                <code>N개 거점의 방문 순서 = N! 가지</code>
+                <code>기지 제외 N개 거점의 총 방문 순서의 수 = ₚNₚ = N! (가지)</code>
             </div>
-            <p>이 중 거리 합계가 <strong>최소</strong>인 순서를 찾는 것이 이번 탐구의 핵심입니다. 브루트 포스(완전 탐색)로는 모든 가지수를 계산하여 최솟값을 찾습니다.</p>
+
+            <div class="academic-insight">
+                <h4>🎓 공통수학1 교과 연계 분석</h4>
+                <p>시작과 종료 지점(기지)이 고정되어 있으므로 중간 방문 거점 $N$개의 순서만을 늘어놓는 상황입니다. 첫 번째로 방문할 거점을 택하는 사건의 경우의 수 $N$가지, 두 번째는 $(N-1)$가지... 마지막은 1가지가 됩니다.</p>
+                <p>각 단계의 사건들은 동시에(연이어) 일어나므로 공통수학의 **[곱의 법칙]**이 적용되어 총 경우의 수는 $N \times (N-1) \times \dots \times 1 = N!$이 됩니다. 알고리즘은 이 모든 순열의 경우의 수 각각의 이동 거리를 구한 후 비교(최솟값 검색)하는 브루트 포스 연산을 수행합니다.</p>
+            </div>
+
+            <!-- Interactive Element: Permutations List & Math Check -->
+            <div class="interactive-container">
+                <div class="interactive-title">📋 실시간 순열($N!$) 나열 및 브루트 포스 분석기</div>
+                <p class="interactive-desc">현재 맵 상태에서 발생하는 모든 순열 경로를 구하고, 총거리를 계산해 정렬한 전수 조사 분석표입니다.</p>
+                <div id="permStats" style="margin-bottom: 12px; font-weight: 600; color: var(--accent-cyan);"></div>
+                <div class="perm-table-wrapper">
+                    <table class="perm-table">
+                        <thead>
+                            <tr>
+                                <th>경로 순열 (기지: H)</th>
+                                <th>구간별 가중치 연산식</th>
+                                <th>총 이동 거리</th>
+                                <th>판정</th>
+                            </tr>
+                        </thead>
+                        <tbody id="permTableBody">
+                            <!-- JS에 의해 동적 렌더링 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Tab 3: 최적화 원리 (조합) -->
     <div class="tab-content" id="tab-opt">
         <div class="concept-card">
-            <h3>최적화 원리</h3>
-            <p>경로의 총 거리는 각 구간 거리의 합으로 계산됩니다. 인접 행렬 A에서 경로 [v₀→v₁→…→vₙ→v₀]의 총 비용은:</p>
+            <h3>최적화 원리와 조합 (Optimization & Combination)</h3>
+            <p>경로의 총 거리는 각 구간별 인접 행렬 성분의 합으로 표현되는 다변수 함수입니다. 이를 최소화(Minimization)하는 목적식을 푸는 것이 최적화의 원리입니다.</p>
+            
             <div class="formula-box">
-                <code>Cost = A[v₀][v₁] + A[v₁][v₂] + ... + A[vₙ₋₁][vₙ] + A[vₙ][v₀]</code>
+                <code>목적 함수: Min sum A[vᵢ][vᵢ₊₁]  (단, v는 N!개의 순열 중 하나)</code>
             </div>
-            <p>이 값을 모든 순열에 대해 계산하고 <strong>최솟값(min)</strong>을 찾는 것이 알고리즘의 역할입니다.</p>
+
+            <div class="academic-insight">
+                <h4>🎓 공통수학1 교과 연계 분석</h4>
+                <p>본 게임의 무작위 맵 생성 및 럭키 모드(가중치 도로 배치) 시스템은 순서가 상관없는 **조합(Combination, $nCr$)** 개념과 엮여 있습니다.</p>
+                <p>1) <strong>간선(도로)의 조합 $_E C_K$</strong>: 기지를 포함한 거점 수 $M = N+1$일 때, 서로 다른 거점을 연결하여 그릴 수 있는 총 도로의 개수는 조합 $_M C_2 = \frac{M(M-1)}{2} = E$개입니다. 럭키 모드에서 이 $E$개의 도로 중 무작위로 $K$개의 도로에 보너스(초록) 및 페널티(빨강) 가중치 변동을 유발할 때, 가중치가 배치될 도로 조합의 가짓수는 **$_E C_K$**가 됩니다.</p>
+            </div>
+
+            <!-- Interactive Element: Combination Calculator -->
+            <div class="interactive-container">
+                <div class="interactive-title">🧮 럭키 모드 도로 배치 조합($_E C_K$) 동적 계산기</div>
+                <p class="interactive-desc">현재 레벨의 노드 연결 상태에서 특수 가중치 도로를 배치할 수 있는 대수적 가짓수입니다.</p>
+                <div class="comb-calc-box">
+                    <div class="comb-formula" id="combFormulaDisplay">
+                        <!-- e.g. ₁₀C₃ = 120 -->
+                    </div>
+                    <div class="comb-math-details" id="combMathDetails">
+                        <!-- 상세 팩토리얼 분수 수식 표현 -->
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Tab 4: 조합 폭발 -->
     <div class="tab-content" id="tab-tsp">
         <div class="concept-card">
-            <h3>조합 폭발 (Combinatorial Explosion)</h3>
-            <p>이 게임의 레벨이 오를수록 거점 수가 늘어나고, 계산해야 할 경우의 수는 <strong>기하급수적</strong>으로 증가합니다. 산업공학 물류가 어려운 이유입니다.</p>
-            <div class="explosion-table">
-                <div class="exp-row header"><span>거점 수 (N)</span><span>경우의 수 (N!)</span><span>인간의 느낌</span></div>
-                <div class="exp-row"><span>4개</span><span>24</span><span>매우 쉬움</span></div>
-                <div class="exp-row"><span>5개</span><span>120</span><span>직관으로 가능</span></div>
-                <div class="exp-row"><span>7개</span><span>5,040</span><span>헷갈림 시작</span></div>
-                <div class="exp-row highlight"><span>20개</span><span>2.4 × 10¹⁸</span><span>우주 나이 초과</span></div>
+            <h3>조합 폭발 (Combinatorial Explosion)과 진로 탐구</h3>
+            <p>거점 수 $N$이 증가함에 따라 가능한 순열의 수 $N!$은 기하급수적으로 폭증합니다. 이러한 현상을 <strong>조합 폭발</strong>이라 하며, 컴퓨터로도 다항 시간 내에 최적해를 구할 수 없는 **NP-난해(NP-Hard)** 문제의 대표 주자입니다.</p>
+
+            <div class="academic-insight">
+                <h4>🎓 알고리즘 시간 복잡도와 산업공학(물류)의 한계</h4>
+                <p>아래 표는 컴퓨터가 초당 10억 번($10⁹$ FLOPS)의 덧셈 연산을 수행할 수 있다고 가정했을 때, 거점 개수별 외판원 문제(TSP) 브루트 포스 연산에 필요한 총 시간입니다. 단 몇 개의 거점이 추가되는 것만으로도 계산 시간은 인간의 수명이나 우주의 나이를 아득히 초과하게 됩니다.</p>
+                <p>이를 우회하기 위해 산업공학 및 물류 설계에서는 모든 경우를 탐색하는 수학적 나열 대신, <strong>탐욕적 휴리스틱(Greedy Heuristic)</strong>이나 <strong>동적 계획법(Dynamic Programming, DP)</strong> 같은 고도화된 근사 최적화 알고리즘을 도입해 실시간 경로를 해결합니다.</p>
+            </div>
+
+            <!-- Interactive Element: Bar Chart of N! vs Computer Time -->
+            <div class="interactive-container">
+                <div class="interactive-title">📊 거점 수($N$) 증가에 따른 연산 시간 폭증 그래프 ($O(N!)$)</div>
+                <p class="interactive-desc">거점 수가 1개 증가할 때마다 팩토리얼 연산량이 어떻게 폭발적으로 비선형 증가하는지 체감하는 차트입니다.</p>
+                
+                <div class="explosion-chart-wrapper">
+                    <div class="chart-container" id="chartBarsContainer">
+                        <!-- 동적으로 바 그래프 생성 -->
+                    </div>
+                </div>
+
+                <div class="explosion-table" style="margin-top: 24px;">
+                    <div class="exp-row header">
+                        <span>거점 수 ($N$)</span>
+                        <span>경우의 수 ($N!$)</span>
+                        <span>슈퍼컴퓨터 연산 예상 시간</span>
+                        <span>물리적 스케일 대조</span>
+                    </div>
+                    <div class="exp-row"><span>4개</span><span>24</span><span>0.000000024초</span><span class="scale-easy">⚡ 눈깜짝할 사이</span></div>
+                    <div class="exp-row"><span>6개</span><span>720</span><span>0.00000072초</span><span class="scale-easy">⚡ 눈깜짝할 사이</span></div>
+                    <div class="exp-row"><span>8개</span><span>40,320</span><span>0.00004032초</span><span class="scale-easy">⚡ 눈깜짝할 사이</span></div>
+                    <div class="exp-row"><span>10개</span><span>3,628,800</span><span>0.0036초</span><span class="scale-easy">🖱️ 클릭 한 번</span></div>
+                    <div class="exp-row"><span>12개</span><span>479,001,600</span><span>0.479초</span><span class="scale-easy">⏱️ 약 0.5초</span></div>
+                    <div class="exp-row highlight"><span>15개</span><span>1,307,674,368,000</span><span>21.79분</span><span class="scale-medium">☕ 커피 브레이크</span></div>
+                    <div class="exp-row highlight-worst"><span>20개</span><span>2,432,902,008,176,640,000</span><span>77.1년</span><span class="scale-hard">👴 인간의 한 평생</span></div>
+                    <div class="exp-row highlight-worst"><span>25개</span><span>1.55 × 10²⁵</span><span>4.9억 년</span><span class="scale-hard">🦖 공룡 멸종 시기</span></div>
+                    <div class="exp-row highlight-worst"><span>30개</span><span>2.65 × 10³²</span><span>8.4조 년</span><span class="scale-hard">🌌 우주 나이의 600배</span></div>
+                </div>
             </div>
         </div>
     </div>

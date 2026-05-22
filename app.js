@@ -191,6 +191,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById(`tab-${tab.dataset.tab}`).classList.add('active');
             });
         });
+
+        // 행렬 경로 검색기 리스너
+        const pathBtn = document.getElementById('findMatrixPathsBtn');
+        if (pathBtn) {
+            pathBtn.addEventListener('click', () => {
+                const startIdx = parseInt(document.getElementById('pathStartNode').value);
+                const endIdx = parseInt(document.getElementById('pathEndNode').value);
+                const steps = parseInt(document.getElementById('pathSteps').value);
+                findAndHighlightPaths(startIdx, endIdx, steps);
+            });
+        }
     }
 
     // ===== GAME LOOP =====
@@ -336,8 +347,373 @@ document.addEventListener('DOMContentLoaded', () => {
             html += '</tr>';
         }
         ui.matrixTable.innerHTML = html;
+        updateMathReport();
+    }
+
+    // ===== MATH REPORT ENGINE (고1 공통수학1 연계) =====
+    
+    function updateMathReport() {
+        if (!state.nodes || state.nodes.length === 0) return;
+        
+        renderMatrixTab();
+        renderPermTab();
+        renderOptTab();
+        renderTspTab();
     }
     
+    function multiplyMatrices(A, B) {
+        const n = A.length;
+        const C = Array(n).fill(null).map(() => Array(n).fill(0));
+        for (let i = 0; i < n; i++) {
+            for (let j = 0; j < n; j++) {
+                let sum = 0;
+                for (let k = 0; k < n; k++) {
+                    sum += A[i][k] * B[k][j];
+                }
+                C[i][j] = sum;
+            }
+        }
+        return C;
+    }
+    
+    function factorial(n) {
+        if (n <= 1) return 1;
+        let res = 1;
+        for (let i = 2; i <= n; i++) res *= i;
+        return res;
+    }
+    
+    function combination(n, r) {
+        if (r < 0 || r > n) return 0;
+        if (r === 0 || r === n) return 1;
+        return Math.round(factorial(n) / (factorial(r) * factorial(n - r)));
+    }
+    
+    function generatePermutations(arr) {
+        const results = [];
+        function permute(temp, remaining) {
+            if (remaining.length === 0) {
+                results.push([...temp]);
+                return;
+            }
+            for (let i = 0; i < remaining.length; i++) {
+                const current = remaining[i];
+                const nextRemaining = remaining.slice(0, i).concat(remaining.slice(i + 1));
+                temp.push(current);
+                permute(temp, nextRemaining);
+                temp.pop();
+            }
+        }
+        permute([], arr);
+        return results;
+    }
+    
+    let currentMatrixM = [];
+    let currentMatrixM2 = [];
+    let currentMatrixM3 = [];
+    
+    function renderMatrixTab() {
+        const n = state.numNodes;
+        const M = Array(n).fill(null).map(() => Array(n).fill(0));
+        for (let i = 0; i < n; i++) {
+            for (let j = 0; j < n; j++) {
+                if (i === j) {
+                    M[i][j] = 0;
+                } else {
+                    const dx = state.nodes[i].x - state.nodes[j].x;
+                    const dy = state.nodes[i].y - state.nodes[j].y;
+                    const distRatio = Math.sqrt(dx*dx + dy*dy);
+                    M[i][j] = distRatio < 0.48 ? 1 : 0;
+                }
+            }
+        }
+        
+        currentMatrixM = M;
+        currentMatrixM2 = multiplyMatrices(M, M);
+        currentMatrixM3 = multiplyMatrices(currentMatrixM2, M);
+        
+        const mTable = document.getElementById('matrixM');
+        const m2Table = document.getElementById('matrixM2');
+        const m3Table = document.getElementById('matrixM3');
+        
+        function renderMiniTable(tableEl, matrix) {
+            if (!tableEl) return;
+            let html = '<tr><td class="header-cell"></td>';
+            for (let i = 0; i < n; i++) {
+                html += `<td class="header-cell" title="거점 ${i}">${state.nodes[i].symbol}</td>`;
+            }
+            html += '</tr>';
+            
+            for (let i = 0; i < n; i++) {
+                html += `<tr><td class="header-cell" title="거점 ${i}">${state.nodes[i].symbol}</td>`;
+                for (let j = 0; j < n; j++) {
+                    if (i === j) {
+                        html += `<td class="diagonal">0</td>`;
+                    } else {
+                        html += `<td id="mini-${tableEl.id}-${i}-${j}">${matrix[i][j]}</td>`;
+                    }
+                }
+                html += '</tr>';
+            }
+            tableEl.innerHTML = html;
+        }
+        
+        renderMiniTable(mTable, currentMatrixM);
+        renderMiniTable(m2Table, currentMatrixM2);
+        renderMiniTable(m3Table, currentMatrixM3);
+        
+        const startSelect = document.getElementById('pathStartNode');
+        const endSelect = document.getElementById('pathEndNode');
+        if (startSelect && endSelect) {
+            const prevStart = startSelect.value;
+            const prevEnd = endSelect.value;
+            
+            let options = '';
+            for (let i = 0; i < n; i++) {
+                options += `<option value="${i}">${state.nodes[i].symbol} (거점 ${i})</option>`;
+            }
+            startSelect.innerHTML = options;
+            endSelect.innerHTML = options;
+            
+            if (prevStart !== "" && parseInt(prevStart) < n) startSelect.value = prevStart;
+            else startSelect.value = "0";
+            
+            if (prevEnd !== "" && parseInt(prevEnd) < n) endSelect.value = prevEnd;
+            else endSelect.value = (n > 1) ? "1" : "0";
+        }
+    }
+    
+    function findAndHighlightPaths(startIdx, endIdx, steps) {
+        const resultBox = document.getElementById('matrixPathResult');
+        if (!resultBox) return;
+        
+        if (startIdx === endIdx) {
+            resultBox.innerHTML = `<span style="color:var(--accent-red);">⚠️ 출발 거점과 도착 거점은 달라야 합니다.</span>`;
+            return;
+        }
+        
+        document.querySelectorAll('.matrix-mini-table td').forEach(td => td.classList.remove('path-active'));
+        
+        const n = state.numNodes;
+        const paths = [];
+        
+        if (steps === 2) {
+            for (let k = 0; k < n; k++) {
+                if (currentMatrixM[startIdx][k] === 1 && currentMatrixM[k][endIdx] === 1) {
+                    paths.push([startIdx, k, endIdx]);
+                }
+            }
+        } else if (steps === 3) {
+            for (let k = 0; k < n; k++) {
+                for (let m = 0; m < n; m++) {
+                    if (currentMatrixM[startIdx][k] === 1 && currentMatrixM[k][m] === 1 && currentMatrixM[m][endIdx] === 1) {
+                        paths.push([startIdx, k, m, endIdx]);
+                    }
+                }
+            }
+        }
+        
+        const stepsName = steps === 2 ? 'M²' : 'M³';
+        const expectedCount = steps === 2 ? currentMatrixM2[startIdx][endIdx] : currentMatrixM3[startIdx][endIdx];
+        
+        let html = `<strong>행렬 연산 검증 (${stepsName} 성분): ${expectedCount}개 경로 존재</strong><br>`;
+        
+        if (paths.length === 0) {
+            html += `<span style="color:var(--text-muted); font-size:0.85rem;">구체적으로 경유 가능한 ${steps}단계 경로가 존재하지 않습니다.</span>`;
+        } else {
+            html += `<ul style="margin-left: 16px; margin-top: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; line-height: 1.6;">`;
+            paths.forEach(p => {
+                const pathSymbols = p.map(idx => state.nodes[idx].symbol).join(' → ');
+                const pathIndices = p.join(' → ');
+                html += `<li>${pathSymbols} <span style="color:var(--text-muted); font-size:0.75rem;">(인덱스: ${pathIndices})</span></li>`;
+                
+                for (let i = 0; i < p.length - 1; i++) {
+                    const u = p[i];
+                    const v = p[i+1];
+                    const cell = document.getElementById(`mini-matrixM-${u}-${v}`);
+                    if (cell) cell.classList.add('path-active');
+                }
+            });
+            html += `</ul>`;
+            
+            const resultTableId = steps === 2 ? 'matrixM2' : 'matrixM3';
+            const resCell = document.getElementById(`mini-${resultTableId}-${startIdx}-${endIdx}`);
+            if (resCell) resCell.classList.add('path-active');
+        }
+        
+        resultBox.innerHTML = html;
+        sound.playSFX('click');
+    }
+    
+    function renderPermTab() {
+        const n = state.numNodes;
+        const statsEl = document.getElementById('permStats');
+        const tbody = document.getElementById('permTableBody');
+        if (!tbody) return;
+        
+        if (n > 6) {
+            statsEl.textContent = `거점 수: ${n-1}개 (기지 제외) | 전체 순열 가짓수: ${factorial(n-1).toLocaleString()}가지`;
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" style="text-align:center; padding: 30px; color: var(--accent-red); font-weight: 500;">
+                        ⚠️ 조합 폭발 발생! N이 커서 순열(${factorial(n-1).toLocaleString()}가지)을 나열하기에 브라우저 오버헤드가 큽니다.<br>
+                        연산 방지 안전 장치가 작동되었습니다. 우측의 [조합 폭발] 탭에서 이론적 연산량을 확인하십시오.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        statsEl.textContent = `거점 수: ${n-1}개 (기지 제외) | 전체 순열 가짓수: ${(n-1)}! = ${factorial(n-1).toLocaleString()}가지 (ₚ${n-1}ₚ${n-1})`;
+        
+        const targetNodes = [];
+        for (let i = 1; i < n; i++) targetNodes.push(i);
+        
+        const perms = generatePermutations(targetNodes);
+        const routeData = [];
+        
+        perms.forEach(p => {
+            const fullRoute = [0, ...p, 0];
+            let distSum = 0;
+            let calcParts = [];
+            for (let i = 0; i < fullRoute.length - 1; i++) {
+                const d = state.adjMatrix[fullRoute[i]][fullRoute[i+1]];
+                distSum += d;
+                calcParts.push(d.toFixed(1));
+            }
+            routeData.push({
+                permutation: p,
+                fullRoute: fullRoute,
+                dist: parseFloat(distSum.toFixed(1)),
+                calcText: calcParts.join(' + ') + ' km'
+            });
+        });
+        
+        routeData.sort((a, b) => a.dist - b.dist);
+        
+        let html = '';
+        const limit = 24;
+        
+        const renderRow = (data, idx, labelClass, labelText) => {
+            const pathStr = data.fullRoute.map(idx => idx === 0 ? '🏠' : state.nodes[idx].symbol).join(' → ');
+            const badge = labelClass ? `<span class="perm-badge ${labelClass}">${labelText}</span>` : '';
+            const rowClass = labelClass ? (labelClass === 'best' ? 'best-route-row' : 'worst-route-row') : '';
+            
+            return `
+                <tr class="${rowClass}">
+                    <td><strong>${pathStr}</strong></td>
+                    <td style="color:var(--text-muted); font-size:0.8rem;">${data.calcText}</td>
+                    <td style="font-weight: 700;">${data.dist.toFixed(1)} km</td>
+                    <td>${badge}</td>
+                </tr>
+            `;
+        };
+        
+        if (routeData.length <= limit) {
+            routeData.forEach((data, index) => {
+                let labelClass = null;
+                let labelText = '';
+                if (index === 0) { labelClass = 'best'; labelText = '최적 경로'; }
+                else if (index === routeData.length - 1) { labelClass = 'worst'; labelText = '최악 경로'; }
+                
+                html += renderRow(data, index, labelClass, labelText);
+            });
+        } else {
+            for (let i = 0; i < 12; i++) {
+                let labelClass = i === 0 ? 'best' : null;
+                let labelText = i === 0 ? '최적 경로' : '';
+                html += renderRow(routeData[i], i, labelClass, labelText);
+            }
+            html += `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding: 12px; font-style:italic;">... 조합 폭발 방지를 위해 중간 경로 생략 ...</td></tr>`;
+            for (let i = routeData.length - 12; i < routeData.length; i++) {
+                let labelClass = i === routeData.length - 1 ? 'worst' : null;
+                let labelText = i === routeData.length - 1 ? '최악 경로' : '';
+                html += renderRow(routeData[i], i, labelClass, labelText);
+            }
+        }
+        
+        tbody.innerHTML = html;
+    }
+    
+    function renderOptTab() {
+        const n = state.numNodes;
+        const E = (n * (n - 1)) / 2;
+        
+        let K = 0;
+        for (let i = 0; i < n; i++) {
+            for (let j = i + 1; j < n; j++) {
+                const dx = state.nodes[i].x - state.nodes[j].x;
+                const dy = state.nodes[i].y - state.nodes[j].y;
+                const baseDist = Math.sqrt(dx*dx + dy*dy) * 20;
+                const currentDist = state.adjMatrix[i][j];
+                if (currentDist < baseDist * 0.5 || currentDist > baseDist * 1.5) {
+                    K++;
+                }
+            }
+        }
+        
+        let isExample = false;
+        if (K === 0) {
+            K = Math.min(3, Math.max(1, Math.floor(E / 3)));
+            isExample = true;
+        }
+        
+        const combVal = combination(E, K);
+        
+        const formulaEl = document.getElementById('combFormulaDisplay');
+        const detailsEl = document.getElementById('combMathDetails');
+        if (!formulaEl || !detailsEl) return;
+        
+        formulaEl.innerHTML = `<sub>${E}</sub>C<sub>${K}</sub> = ${combVal.toLocaleString()}`;
+        
+        let numParts = [];
+        let denParts = [];
+        for (let i = 0; i < K; i++) {
+            numParts.push(E - i);
+            denParts.push(K - i);
+        }
+        
+        let html = `식: <sub>${E}</sub>C<sub>${K}</sub> = <span>${E}!</span> / (<span>${K}!</span> × <span>${E - K}!</span>)<br>`;
+        html += `계산: <span>(${numParts.join('×')})</span> / <span>(${denParts.join('×')})</span> = <strong>${combVal.toLocaleString()}</strong> 가지 조합<br>`;
+        
+        if (state.gameMode === 'chaos' && !isExample) {
+            html += `<span style="color:var(--accent-green); font-size:0.85rem; margin-top:8px; display:inline-block; line-height: 1.4;">🍀 <strong>[확률 공간]</strong> 현재 맵의 특수 가중치 도로 ${K}개의 배치는 총 <strong>${combVal.toLocaleString()}</strong>개의 상이한 수학적 조합 중 <strong>1/${combVal.toLocaleString()}</strong>의 확률로 획득한 고유의 지도 구조입니다.</span>`;
+        } else {
+            const note = isExample ? `(※ 현재 특수 도로가 없어 예시로 ${K}개 배치 기준 계산)` : '';
+            html += `<span style="color:var(--text-muted); font-size:0.85rem; margin-top:8px; display:inline-block; line-height: 1.4;">💡 ${note} 전체 도로 ${E}개 중 ${K}개의 특수 도로를 무작위로 선정하여 설치하는 대수학적 방법의 수는 총 <strong>${combVal.toLocaleString()}</strong>가지가 존재합니다.</span>`;
+        }
+        
+        detailsEl.innerHTML = html;
+    }
+    
+    function renderTspTab() {
+        const container = document.getElementById('chartBarsContainer');
+        if (!container) return;
+        
+        let chartHtml = '';
+        const nValues = [3, 4, 5, 6, 7, 8, 9, 10];
+        const widths = [2, 5, 12, 25, 45, 65, 85, 100];
+        const times = ["0.000000006초", "0.000000024초", "0.00000012초", "0.00000072초", "0.00000504초", "0.00004032초", "0.00036288초", "0.0036초"];
+        
+        for (let i = 0; i < nValues.length; i++) {
+            const n = nValues[i];
+            const w = widths[i];
+            const val = factorial(n).toLocaleString();
+            const isExplosive = n >= 8 ? ' explosive' : '';
+            
+            chartHtml += `
+            <div class="chart-bar-row">
+                <div class="chart-label">N = ${n} 거점</div>
+                <div class="chart-bar-wrapper">
+                    <div class="chart-bar${isExplosive}" style="width: ${w}%;"></div>
+                    <span class="chart-bar-value">${val}가지 (${times[i]})</span>
+                </div>
+            </div>
+            `;
+        }
+        container.innerHTML = chartHtml;
+    }
+
     function spawnSpecialRoads() {
         let edges = [];
         for(let i=0; i<state.numNodes; i++) {
