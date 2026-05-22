@@ -247,10 +247,6 @@ document.addEventListener('DOMContentLoaded', () => {
             state.lastTime = performance.now();
         }
         
-        if (state.gameMode === 'timeattack' && state.level >= 2) {
-            state.jamTimerId = setInterval(triggerTrafficJam, 3000 + Math.random() * 3000);
-        }
-        
         requestAnimationFrame(gameLoop);
     }
 
@@ -298,14 +294,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     const dy = state.nodes[i].y - state.nodes[j].y;
                     let dist = parseFloat((Math.sqrt(dx*dx + dy*dy) * 20).toFixed(1));
                     if (state.gameMode === 'chaos') {
-                        // 70% 일반 가중치 (0.8 ~ 1.2배 미세 무작위 -> 흰색 일반선)
-                        // 15% 보너스 가중치 (0.2 ~ 0.45배 -> 초록선)
-                        // 15% 페널티 가중치 (1.6 ~ 2.5배 -> 빨강선)
+                        // 90% 일반 가중치 (0.8 ~ 1.2배 미세 무작위 -> 흰색 일반선)
+                        // 5% 보너스 가중치 (0.2 ~ 0.45배 -> 초록선)
+                        // 5% 페널티 가중치 (1.6 ~ 2.5배 -> 빨강선)
                         let rand = Math.random();
                         let multiplier;
-                        if (rand < 0.70) {
+                        if (rand < 0.90) {
                             multiplier = 0.8 + Math.random() * 0.4;
-                        } else if (rand < 0.85) {
+                        } else if (rand < 0.95) {
                             multiplier = 0.2 + Math.random() * 0.25;
                         } else {
                             multiplier = 1.6 + Math.random() * 0.9;
