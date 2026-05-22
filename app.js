@@ -206,9 +206,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             generateNodes();
             generateMatrix();
-            if (state.gameMode === 'timeattack') {
-                spawnSpecialRoads();
-            }
         } else {
             renderMatrixHTML();
         }
@@ -301,8 +298,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     const dy = state.nodes[i].y - state.nodes[j].y;
                     let dist = parseFloat((Math.sqrt(dx*dx + dy*dy) * 20).toFixed(1));
                     if (state.gameMode === 'chaos') {
-                        // 완전히 무작위 운빨 가중치 (거리와 무관)
-                        let multiplier = 0.2 + Math.random() * 2.8; 
+                        // 70% 일반 가중치 (0.8 ~ 1.2배 미세 무작위 -> 흰색 일반선)
+                        // 15% 보너스 가중치 (0.2 ~ 0.45배 -> 초록선)
+                        // 15% 페널티 가중치 (1.6 ~ 2.5배 -> 빨강선)
+                        let rand = Math.random();
+                        let multiplier;
+                        if (rand < 0.70) {
+                            multiplier = 0.8 + Math.random() * 0.4;
+                        } else if (rand < 0.85) {
+                            multiplier = 0.2 + Math.random() * 0.25;
+                        } else {
+                            multiplier = 1.6 + Math.random() * 0.9;
+                        }
                         dist = parseFloat((dist * multiplier).toFixed(1));
                     }
                     state.adjMatrix[i][j] = dist;
