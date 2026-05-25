@@ -1096,13 +1096,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 state.timeLeft = 0;
                 state.isTimerRunning = false;
                 state.isPlaying = false;
-                endGame(false, "TIME OVER", null, "시간이 다 되었습니다!");
+                
+                // 시간 초과 시 즉시 게임을 종료하지 않고, 최적화 경로 애니메이션을 실행하도록 설정
+                state.isGameOver = true;
+                state.avatarProgress = 0;
+                const optDist = findOptimalRoute();
+                
+                winResult = {
+                    isWin: false,
+                    title: "TIME OVER",
+                    optDist: optDist,
+                    descText: "시간이 다 되었습니다! 최적 경로를 확인해 보세요."
+                };
             }
             updateTimerDisplay();
         }
         
-        if (state.isGameOver && state.myRoute.length === state.numNodes + 1) {
-            state.avatarProgress += 0.04;
+        if (state.isGameOver) {
+            // dt 기반으로 부드럽고 일정한 속도 구현 (초당 0.65 노드씩 진행하여 타임어택 고스트 느낌 부여)
+            state.avatarProgress += 0.65 * dt;
             const targetLength = (state.optimalRoute && state.optimalRoute.length > 0) ? state.optimalRoute.length : state.myRoute.length;
             if (state.avatarProgress >= targetLength - 1) {
                 state.avatarProgress = targetLength - 1;
