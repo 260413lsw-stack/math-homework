@@ -872,7 +872,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const diffPercent = (diff / optDist) * 100;
         
         if (state.gameMode === 'perfect') {
-            if (Math.abs(diff) > 0.1) {
+            if (Math.abs(diff) > 0.01) {
                 winResult = {
                     isWin: false,
                     title: "PERFECT FAILED",
@@ -888,7 +888,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             }
         } else {
-            if (diff <= 0.1) {
+            if (Math.abs(diff) <= 0.01) {
                 winResult = {
                     isWin: true,
                     title: "PERFECT!",
