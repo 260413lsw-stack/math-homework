@@ -40,7 +40,7 @@
 <!-- ===== HEADER ===== -->
 <header class="site-header">
     <div class="header-content">
-        <div class="header-tag">📦 인간 VS 알고리즘 <span style="opacity: 0.3; margin-left: 8px; margin-right: 8px;">|</span> <span style="color: var(--accent-cyan); font-weight: 700;">V7.1.5</span></div>
+        <div class="header-tag">📦 인간 VS 알고리즘 <span style="opacity: 0.3; margin-left: 8px; margin-right: 8px;">|</span> <span style="color: var(--accent-cyan); font-weight: 700;">V7.1.6</span></div>
         <h1>배달 경로 <span class="grad">최적화 게임</span></h1>
         <p class="header-sub">거점이 늘어날수록 급증하는 경우의 수(조합 폭발)! 컴퓨터의 인접 행렬 알고리즘을 이겨보세요.</p>
     </div>
@@ -149,6 +149,12 @@
             <div class="legend-item"><span class="legend-dot stop"></span>배달 거점</div>
             <div class="legend-item"><span class="legend-line my"></span>내 경로</div>
             <div class="legend-item"><span class="legend-line opt"></span>최적 경로</div>
+        </div>
+        <div class="scoring-guide" style="margin-top: 15px; padding: 12px 16px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; font-size: 0.8rem; line-height: 1.6; color: var(--text-muted); text-align: left;">
+            <strong style="color: var(--accent-cyan); display: block; margin-bottom: 6px; font-size: 0.85rem;">🏆 클리어 판정 기준</strong>
+            <span style="display: block; margin-bottom: 2px;">• <strong style="color: #10b981;">PERFECT!</strong>: 알고리즘 최적 거리와의 오차가 0.1 km 이하</span>
+            <span style="display: block; margin-bottom: 2px;">• <strong style="color: #3b82f6;">GREAT</strong>: 알고리즘 최적 거리 대비 오차율이 10% 이하</span>
+            <span style="display: block;">• <strong style="color: #ef4444;">FAIL (GAME OVER)</strong>: 오차율이 10%를 초과하는 경우 (※ 퍼펙트 모드는 오차가 있으면 즉시 실패)</span>
         </div>
     </section>
 
@@ -379,9 +385,9 @@
 
 <footer class="site-footer">
     <p>수학 탐구 프로젝트 · 공통수학1 [행렬] & [경우의 수] · 산업공학 진로 연계</p>
-    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;">최근 업데이트: V7.1.5 (2026-05-25 21:30)</p>
+    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;">최근 업데이트: V7.1.6 (2026-05-25 21:32)</p>
 </footer>
 
-<script src="app.js?v=7.1.5"></script>
+<script src="app.js?v=7.1.6"></script>
 </body>
 </html>
