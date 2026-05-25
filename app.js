@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
         level: 1,
         stack: 0,
         score: 0,
-        bestScore: localStorage.getItem('tspBestScore') || 0,
+        bestScore: 0,
         timeLeft: 0,
         timerId: null,
         jamTimerId: null, 
@@ -973,7 +973,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (state.score > state.bestScore) {
                 state.bestScore = state.score;
-                localStorage.setItem('tspBestScore', state.bestScore);
                 ui.bestScore.textContent = state.bestScore;
             }
         } else {
