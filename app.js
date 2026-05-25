@@ -207,7 +207,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ===== GAME LOOP =====
     function startLevel(shouldGenerate = true) {
-        state.lastTime = 0; // 새 게임 시작 시 이전 판의 시간 차이가 dt로 잘못 넘어가지 않도록 즉시 0 리셋
+        // 새 게임 시작 즉시 이전 판의 상태 변수들을 전면 리셋하여 런타임 렌더링(drawMap) 에러 차단
+        state.lastTime = 0;
+        state.isGameOver = false;
+        state.optimalRoute = [];
+        state.myRoute = [0];
+        state.avatarProgress = 0;
+        state.isPlaying = false;
+        state.isEndGameCalled = false;
+        state.opponentRoute = [];
+        state.opponentFinished = false;
+
         ui.startOverlay.classList.add('hidden');
         ui.gameOverlay.classList.add('hidden');
         
@@ -230,13 +240,10 @@ document.addEventListener('DOMContentLoaded', () => {
             state.timeLeft = (state.numNodes - 1) * 5.0; 
         }
         
-        resetRoute();
-        state.optimalRoute = [];
+        // 내 경로 UI 및 캔버스 초기 갱신
+        updateRouteUI();
         
         state.isPlaying = true;
-        state.isGameOver = false;
-        state.opponentRoute = [];
-        state.opponentFinished = false;
         
         if (state.numNodes >= 7) {
             document.body.classList.add('boss-mode');
@@ -249,8 +256,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updateTimerDisplay();
         
         clearInterval(state.jamTimerId);
-        
-        state.isEndGameCalled = false;
         
         if (state.gameMode === 'chaos' && !state.hasShownLuckyGuide) {
             state.isTimerRunning = false;
