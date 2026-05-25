@@ -1310,7 +1310,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.fill();
             ctx.globalAlpha = 1.0;
         }
-        
         // 5. 오토바이 아바타 애니메이션 (최적 경로 추적)
         const animationRoute = (state.optimalRoute && state.optimalRoute.length > 0) ? state.optimalRoute : state.myRoute;
         if (state.isGameOver && animationRoute.length > 1 && state.avatarProgress > 0) {
@@ -1325,12 +1324,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 cx = (from.x + (to.x - from.x) * t) * w;
                 cy = (from.y + (to.y - from.y) * t) * h;
-                
-                // [수학 내분점 수식 노출] 🛵 아이콘 상단에 실시간으로 동작하는 내분점 수식 렌더링
-                ctx.font = '10px JetBrains Mono, monospace';
-                ctx.fillStyle = '#06b6d4'; // Cyan
-                ctx.textAlign = 'center';
-                ctx.fillText(`P = (1-${t.toFixed(1)})A + ${t.toFixed(1)}B`, cx, cy - 35);
             } else {
                 // 도착 완료 시 마지막 목적지(기지 🏠)에 얌전히 정차
                 const lastNode = state.nodes[animationRoute[animationRoute.length - 1]];

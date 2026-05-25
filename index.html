@@ -40,7 +40,7 @@
 <!-- ===== HEADER ===== -->
 <header class="site-header">
     <div class="header-content">
-        <div class="header-tag">📦 인간 VS 알고리즘 <span style="opacity: 0.3; margin-left: 8px; margin-right: 8px;">|</span> <span style="color: var(--accent-cyan); font-weight: 700;">V7.3.0</span></div>
+        <div class="header-tag">📦 인간 VS 알고리즘 <span style="opacity: 0.3; margin-left: 8px; margin-right: 8px;">|</span> <span style="color: var(--accent-cyan); font-weight: 700;">V7.3.1</span></div>
         <h1>배달 경로 <span class="grad">최적화 게임</span></h1>
         <p class="header-sub">거점이 늘어날수록 급증하는 경우의 수(조합 폭발)! 컴퓨터의 인접 행렬 알고리즘을 이겨보세요.</p>
     </div>
@@ -399,8 +399,8 @@
                         <span>1.</span> 도형의 방정식과 실시간 궤적
                     </h4>
                     <p style="font-size: 0.8rem; line-height: 1.6; color: var(--text-muted);">
-                        • <strong>두 점 사이의 거리 공식</strong>: 지도 상 거점 좌표 $i(x_1, y_1)$, $j(x_2, y_2)$ 간의 기하학적 거리를 인접 행렬 가중치의 기초 데이터로 변환시킵니다.<br>
-                        • <strong>선분의 내분점 공식</strong>: 아바타(🛵)의 실시간 좌표 $P(x_t, y_t)$를 시간 가중치 $t \in [0, 1]$에 따라 대수적으로 계산하여 지도의 좌표 평면 위에 시각화합니다.
+                        • <strong>두 점 사이의 거리 공식</strong>: 지도 상 거점 좌표 i(x<sub>1</sub>, y<sub>1</sub>), j(x<sub>2</sub>, y<sub>2</sub>) 간의 기하학적 거리를 인접 행렬 가중치의 기초 데이터로 변환시킵니다.<br>
+                        • <strong>선분의 내분점 공식</strong>: 아바타(🛵)의 실시간 좌표 P(x<sub>t</sub>, y<sub>t</sub>)를 시간 가중치 t (0 ≤ t ≤ 1)에 따라 대수적으로 계산하여 지도의 좌표 평면 위에 시각화합니다.
                     </p>
                     <div style="margin-top: 10px; padding: 10px; background: rgba(6, 182, 212, 0.05); border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; text-align: center; color: var(--accent-cyan);">
                         P(t) = ((1-t)x₁ + tx₂, (1-t)y₁ + ty₂)
@@ -412,7 +412,7 @@
                         <span>2.</span> 함수론적 물류 네트워크 해석
                     </h4>
                     <p style="font-size: 0.8rem; line-height: 1.6; color: var(--text-muted);">
-                        • <strong>일대일 대응 (Bijection)</strong>: 기지를 출발하여 모든 배달지 $N$개를 중복과 누락 없이 단 한 번만 방문하고 복귀해야 하는 외판원 문제(TSP)의 조건은 함수론적으로 완벽한 일대일 대응 조건과 결합됩니다.<br>
+                        • <strong>일대일 대응 (Bijection)</strong>: 기지를 출발하여 모든 배달지 N개를 중복과 누락 없이 단 한 번만 방문하고 복귀해야 하는 외판원 문제(TSP)의 조건은 함수론적으로 완벽한 일대일 대응 조건과 결합됩니다.<br>
                         • <strong>합성함수 (Composite Function)</strong>: 거점 간 구간별 연결 경로 함수들의 연속적 결합을 통해 총 배달 경로 가중치를 합성함수의 치환 및 연산 구조로 수학적 모델링합니다.
                     </p>
                 </div>
@@ -422,8 +422,8 @@
                         <span>3.</span> 연결 행렬(M)과 거듭제곱의 응용
                     </h4>
                     <p style="font-size: 0.8rem; line-height: 1.6; color: var(--text-muted);">
-                        • <strong>대칭행렬 (Symmetric Matrix)</strong>: 무방향 도로망이므로 거리/연결 행렬 $M$은 $M = M^T$를 만족합니다.<br>
-                        • <strong>경로 탐색 알고리즘</strong>: $M^2, M^3$ 등 연결 행렬의 거듭제곱 행렬 연산을 통해 고1 행렬 곱셈의 정의를 확인하고, 거점 $i$에서 거점 $j$로 도달하는 $k$단계 중도 경유 경로의 개수를 완벽히 계산합니다.
+                        • <strong>대칭행렬 (Symmetric Matrix)</strong>: 무방향 도로망이므로 거리/연결 행렬 M은 M = M<sup>T</sup> (전치행렬과 일치)를 만족합니다.<br>
+                        • <strong>경로 탐색 알고리즘</strong>: M², M³ 등 연결 행렬의 거듭제곱 행렬 연산을 통해 고1 행렬 곱셈의 정의를 확인하고, 거점 i에서 거점 j로 도달하는 k단계 중도 경유 경로의 개수를 완벽히 계산합니다.
                     </p>
                 </div>
 
@@ -432,7 +432,7 @@
                         <span>4.</span> 경우의 수와 조합 폭발 & 친환경
                     </h4>
                     <p style="font-size: 0.8rem; line-height: 1.6; color: var(--text-muted);">
-                        • <strong>순열과 조합 (nPr & nCr)</strong>: 배달지 방문 순서 집합의 총 가짓수 $N!$과 도로 배치 조합 $_EC_K$로 연산량이 기하급수적으로 폭증하는 <strong>조합 폭발</strong> 원리를 탐구합니다.<br>
+                        • <strong>순열과 조합 (nPr & nCr)</strong>: 배달지 방문 순서 집합의 총 가짓수 N!과 도로 배치 조합 <sub>E</sub>C<sub>K</sub>로 연산량이 기하급수적으로 폭증하는 <strong>조합 폭발</strong> 원리를 탐구합니다.<br>
                         • <strong>친환경 최적화</strong>: 수학적 연산 최적화를 통해 기존 경로 대비 탄소 배출량을 약 15.4% 감축하고, 유류비용을 절약함으로써 대수학적 방법이 현대 환경 공학에 어떻게 기여하는지 정량적으로 밝혀냅니다.
                     </p>
                 </div>
@@ -448,9 +448,9 @@
 
 <footer class="site-footer">
     <p>수학 탐구 프로젝트 · 공통수학1 [행렬] & [경우의 수] · 산업공학 진로 연계</p>
-    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;">최근 업데이트: V7.3.0 (2026-05-25 21:51)</p>
+    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;">최근 업데이트: V7.3.1 (2026-05-25 21:56)</p>
 </footer>
 
-<script src="app.js?v=7.3.0"></script>
+<script src="app.js?v=7.3.1"></script>
 </body>
 </html>
