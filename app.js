@@ -1125,7 +1125,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         drawMap();
         
-        if (state.isPlaying || state.particles.length > 0 || (state.isGameOver && state.avatarProgress < state.myRoute.length - 1)) {
+        const targetLength = (state.optimalRoute && state.optimalRoute.length > 0) ? state.optimalRoute.length : state.myRoute.length;
+        if (state.isPlaying || state.particles.length > 0 || (state.isGameOver && state.avatarProgress < targetLength - 1)) {
             requestAnimationFrame(gameLoop);
         }
     }
