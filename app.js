@@ -97,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
         nodes: [],
         adjMatrix: [],
         myRoute: [0],
+        optimalRoute: [],
         isPlaying: false,
         isGameOver: false,
         particles: [],
@@ -229,6 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         resetRoute();
+        state.optimalRoute = [];
         
         state.isPlaying = true;
         state.isGameOver = false;
@@ -961,12 +963,16 @@ document.addEventListener('DOMContentLoaded', () => {
         for(let i=1; i<state.numNodes; i++) arr.push(i);
         
         let min = Infinity;
+        let bestRoute = [];
         
         function permute(curr, rest) {
             if (rest.length === 0) {
                 const route = [0, ...curr, 0];
                 const d = calculateDistance(route);
-                if (d < min) min = d;
+                if (d < min) {
+                    min = d;
+                    bestRoute = [...route];
+                }
                 return;
             }
             for (let i = 0; i < rest.length; i++) {
@@ -975,6 +981,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         permute([], arr);
+        state.optimalRoute = bestRoute;
         return min;
     }
 
@@ -1096,8 +1103,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (state.isGameOver && state.myRoute.length === state.numNodes + 1) {
             state.avatarProgress += 0.04;
-            if (state.avatarProgress >= state.myRoute.length - 1) {
-                state.avatarProgress = state.myRoute.length - 1;
+            const targetLength = (state.optimalRoute && state.optimalRoute.length > 0) ? state.optimalRoute.length : state.myRoute.length;
+            if (state.avatarProgress >= targetLength - 1) {
+                state.avatarProgress = targetLength - 1;
                 
                 if (!state.isEndGameCalled) {
                     state.isEndGameCalled = true;
@@ -1198,6 +1206,39 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             ctx.stroke();
         }
+
+        // 2-2. 최적 경로 (게임 종료 시 시각화)
+        if (state.isGameOver && state.optimalRoute && state.optimalRoute.length > 1) {
+            ctx.beginPath();
+            ctx.strokeStyle = '#10b981'; // Green
+            ctx.lineWidth = 4;
+            ctx.setLineDash([8, 8]); // Dashed line
+            
+            for (let i = 0; i < state.optimalRoute.length - 1; i++) {
+                const from = state.nodes[state.optimalRoute[i]];
+                const to = state.nodes[state.optimalRoute[i+1]];
+                
+                const dx = (to.x - from.x) * w;
+                const dy = (to.y - from.y) * h;
+                const angle = Math.atan2(dy, dx);
+                
+                const startX = from.x * w + Math.cos(angle) * 16;
+                const startY = from.y * h + Math.sin(angle) * 16;
+                const endX = to.x * w - Math.cos(angle) * 20;
+                const endY = to.y * h - Math.sin(angle) * 20;
+                
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(endX, endY);
+                
+                // 화살표
+                const headlen = 12;
+                ctx.lineTo(endX - headlen * Math.cos(angle - Math.PI / 6), endY - headlen * Math.sin(angle - Math.PI / 6));
+                ctx.moveTo(endX, endY);
+                ctx.lineTo(endX - headlen * Math.cos(angle + Math.PI / 6), endY - headlen * Math.sin(angle + Math.PI / 6));
+            }
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset to solid
+        }
         
         // 3. 노드 그리기
         for (let i = 0; i < state.numNodes; i++) {
@@ -1232,14 +1273,15 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.globalAlpha = 1.0;
         }
         
-        // 5. 오토바이 아바타 애니메이션
-        if (state.isGameOver && state.myRoute.length === state.numNodes + 1 && state.avatarProgress > 0) {
+        // 5. 오토바이 아바타 애니메이션 (최적 경로 추적)
+        const animationRoute = (state.optimalRoute && state.optimalRoute.length > 0) ? state.optimalRoute : state.myRoute;
+        if (state.isGameOver && animationRoute.length > 1 && state.avatarProgress > 0) {
             let idx = Math.floor(state.avatarProgress);
             let nextIdx = idx + 1;
             
-            if (nextIdx < state.myRoute.length) {
-                let from = state.nodes[state.myRoute[idx]];
-                let to = state.nodes[state.myRoute[nextIdx]];
+            if (nextIdx < animationRoute.length) {
+                let from = state.nodes[animationRoute[idx]];
+                let to = state.nodes[animationRoute[nextIdx]];
                 let t = state.avatarProgress - idx;
                 
                 let cx = (from.x + (to.x - from.x) * t) * w;
