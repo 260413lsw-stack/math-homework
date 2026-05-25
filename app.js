@@ -16,27 +16,8 @@ class SoundEngine {
     }
     
     initBGM() {
-        this.initContext();
-        if(this.isMuted) return;
-        if(this.bgmOsc) this.stopBGM();
-        
-        this.bgmOsc = this.ctx.createOscillator();
-        this.bgmGain = this.ctx.createGain();
-        this.bgmOsc.type = 'sawtooth';
-        this.bgmOsc.frequency.setValueAtTime(110, this.ctx.currentTime);
-        this.bgmGain.gain.setValueAtTime(0.03, this.ctx.currentTime);
-        
-        let lfo = this.ctx.createOscillator();
-        lfo.frequency.value = 2;
-        let lfoGain = this.ctx.createGain();
-        lfoGain.gain.value = 5;
-        lfo.connect(lfoGain);
-        lfoGain.connect(this.bgmOsc.frequency);
-        lfo.start();
-        
-        this.bgmOsc.connect(this.bgmGain);
-        this.bgmGain.connect(this.ctx.destination);
-        this.bgmOsc.start();
+        // 배경음악의 지지직 소리를 완전 제거하고 깔끔한 클릭/완주 SFX 효과음만 제공
+        return;
     }
     
     stopBGM() {
@@ -953,7 +934,19 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('overlayTitle').textContent = title;
         document.getElementById('overlayMyDist').textContent = myDist.toFixed(1) + ' km';
         document.getElementById('overlayOptDist').textContent = optDist ? optDist.toFixed(1) + ' km' : '-';
-        document.getElementById('overlayDesc').textContent = descText || '';
+        
+        // 탄소 배출량 및 유류비 절감 정량적 계산
+        let calcDesc = descText || '';
+        if (optDist) {
+            const distSaved = myDist - optDist;
+            const co2Saved = Math.max(0, distSaved * 120); // 1km당 120g CO2 저감
+            const moneySaved = Math.max(0, (distSaved / 10) * 1650); // 연비 10km/L, 휘발유 1,650원 가정
+            
+            calcDesc += `<br><span class="eco-friendly-text" style="color: var(--accent-green); font-weight: 600; font-size: 0.85rem; display: inline-block; margin-top: 8px;">
+                🌱 탄소 중립 효과: CO₂ 약 ${co2Saved.toFixed(0)}g 저감 | 유류비 ${moneySaved.toFixed(0)}원 절감!
+            </span>`;
+        }
+        document.getElementById('overlayDesc').innerHTML = calcDesc;
         
         if (isWin) {
             sound.playSFX('win');
@@ -1332,6 +1325,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 cx = (from.x + (to.x - from.x) * t) * w;
                 cy = (from.y + (to.y - from.y) * t) * h;
+                
+                // [수학 내분점 수식 노출] 🛵 아이콘 상단에 실시간으로 동작하는 내분점 수식 렌더링
+                ctx.font = '10px JetBrains Mono, monospace';
+                ctx.fillStyle = '#06b6d4'; // Cyan
+                ctx.textAlign = 'center';
+                ctx.fillText(`P = (1-${t.toFixed(1)})A + ${t.toFixed(1)}B`, cx, cy - 35);
             } else {
                 // 도착 완료 시 마지막 목적지(기지 🏠)에 얌전히 정차
                 const lastNode = state.nodes[animationRoute[animationRoute.length - 1]];
