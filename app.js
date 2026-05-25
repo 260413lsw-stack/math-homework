@@ -566,7 +566,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        statsEl.textContent = `거점 수: ${n-1}개 (기지 제외) | 전체 순열 가짓수: ${(n-1)}! = ${factorial(n-1).toLocaleString()}가지 (ₚ${n-1}ₚ${n-1})`;
+        statsEl.innerHTML = `거점 수: ${n-1}개 (기지 제외) | 전체 순열 가짓수: ${(n-1)}! = ${factorial(n-1).toLocaleString()}가지 (<sub>${n-1}</sub>P<sub>${n-1}</sub>)`;
         
         const targetNodes = [];
         for (let i = 1; i < n; i++) targetNodes.push(i);
