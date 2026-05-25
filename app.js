@@ -207,6 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ===== GAME LOOP =====
     function startLevel(shouldGenerate = true) {
+        state.lastTime = 0; // 새 게임 시작 시 이전 판의 시간 차이가 dt로 잘못 넘어가지 않도록 즉시 0 리셋
         ui.startOverlay.classList.add('hidden');
         ui.gameOverlay.classList.add('hidden');
         
@@ -297,30 +298,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function generateMatrix() {
         state.adjMatrix = Array(state.numNodes).fill(null).map(() => Array(state.numNodes).fill(0));
+        
+        // 1. 기본 기하학적 거리로 대칭 행렬을 채운다
         for (let i = 0; i < state.numNodes; i++) {
-            for (let j = 0; j < state.numNodes; j++) {
-                if (i === j) {
-                    state.adjMatrix[i][j] = 0;
-                } else {
-                    const dx = state.nodes[i].x - state.nodes[j].x;
-                    const dy = state.nodes[i].y - state.nodes[j].y;
-                    let dist = parseFloat((Math.sqrt(dx*dx + dy*dy) * 20).toFixed(1));
-                    if (state.gameMode === 'chaos') {
-                        // 90% 일반 가중치 (0.8 ~ 1.2배 미세 무작위 -> 흰색 일반선)
-                        // 5% 보너스 가중치 (0.2 ~ 0.45배 -> 초록선)
-                        // 5% 페널티 가중치 (1.6 ~ 2.5배 -> 빨강선)
-                        let rand = Math.random();
-                        let multiplier;
-                        if (rand < 0.90) {
-                            multiplier = 0.8 + Math.random() * 0.4;
-                        } else if (rand < 0.95) {
-                            multiplier = 0.2 + Math.random() * 0.25;
-                        } else {
-                            multiplier = 1.6 + Math.random() * 0.9;
-                        }
-                        dist = parseFloat((dist * multiplier).toFixed(1));
+            for (let j = i + 1; j < state.numNodes; j++) {
+                const dx = state.nodes[i].x - state.nodes[j].x;
+                const dy = state.nodes[i].y - state.nodes[j].y;
+                let dist = parseFloat((Math.sqrt(dx*dx + dy*dy) * 20).toFixed(1));
+                state.adjMatrix[i][j] = dist;
+                state.adjMatrix[j][i] = dist;
+            }
+        }
+        
+        // 2. 럭키 모드(chaos)인 경우 특수 가중치 도로 설정 (대칭 및 최소 1개 이상 보장)
+        if (state.gameMode === 'chaos') {
+            let edges = [];
+            for (let i = 0; i < state.numNodes; i++) {
+                for (let j = i + 1; j < state.numNodes; j++) {
+                    edges.push([i, j]);
+                }
+            }
+            
+            // 도로 목록 무작위 셔플
+            edges.sort(() => Math.random() - 0.5);
+            
+            if (edges.length >= 2) {
+                // 1번째 도로: 확정 보너스 도로 (0.2 ~ 0.45배)
+                const [b_u, b_v] = edges[0];
+                const multB = 0.2 + Math.random() * 0.25;
+                state.adjMatrix[b_u][b_v] = parseFloat((state.adjMatrix[b_u][b_v] * multB).toFixed(1));
+                state.adjMatrix[b_v][b_u] = state.adjMatrix[b_u][b_v];
+                
+                // 2번째 도로: 확정 페널티 도로 (1.6 ~ 2.5배)
+                const [p_u, p_v] = edges[1];
+                const multP = 1.6 + Math.random() * 0.9;
+                state.adjMatrix[p_u][p_v] = parseFloat((state.adjMatrix[p_u][p_v] * multP).toFixed(1));
+                state.adjMatrix[p_v][p_u] = state.adjMatrix[p_u][p_v];
+                
+                // 나머지 도로들에 대해 무작위 가중치 부여 (대칭 유지)
+                for (let k = 2; k < edges.length; k++) {
+                    const [u, v] = edges[k];
+                    let rand = Math.random();
+                    let multiplier;
+                    if (rand < 0.90) {
+                        multiplier = 0.8 + Math.random() * 0.4;
+                    } else if (rand < 0.95) {
+                        multiplier = 0.2 + Math.random() * 0.25;
+                    } else {
+                        multiplier = 1.6 + Math.random() * 0.9;
                     }
-                    state.adjMatrix[i][j] = dist;
+                    state.adjMatrix[u][v] = parseFloat((state.adjMatrix[u][v] * multiplier).toFixed(1));
+                    state.adjMatrix[v][u] = state.adjMatrix[u][v];
                 }
             }
         }
@@ -1083,10 +1111,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function gameLoop(timestamp) {
         if (!state.isPlaying && !state.isGameOver) return;
         
-        if (!state.lastTime) {
-            state.lastTime = timestamp || performance.now();
-        }
         const now = timestamp || performance.now();
+        if (!state.lastTime || state.lastTime === 0) {
+            state.lastTime = now;
+        }
         const dt = (now - state.lastTime) / 1000;
         state.lastTime = now;
         
