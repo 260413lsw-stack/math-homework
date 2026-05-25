@@ -1113,8 +1113,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         if (state.isGameOver) {
-            // dt 기반으로 부드럽고 일정한 속도 구현 (초당 0.65 노드씩 진행하여 타임어택 고스트 느낌 부여)
-            state.avatarProgress += 0.65 * dt;
+            // dt 기반으로 부드럽고 일정한 속도 구현 (속도를 기존 대비 1.5배 상향하여 초당 0.975 노드 진행)
+            state.avatarProgress += 0.975 * dt;
             const targetLength = (state.optimalRoute && state.optimalRoute.length > 0) ? state.optimalRoute.length : state.myRoute.length;
             if (state.avatarProgress >= targetLength - 1) {
                 state.avatarProgress = targetLength - 1;
