@@ -258,9 +258,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             state.isTimerRunning = true;
             state.lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
         }
-        
-        requestAnimationFrame(gameLoop);
     }
 
     function generateNodes() {
@@ -846,6 +845,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     function checkWin() {
+        state.isTimerRunning = false; // 완주 즉시 타이머 정지 (애니메이션 이동 시간 보정)
         state.finalTimeLeft = state.timeLeft;
         state.isPlaying = false;
         state.isGameOver = true;
@@ -1291,20 +1291,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.isGameOver && animationRoute.length > 1 && state.avatarProgress > 0) {
             let idx = Math.floor(state.avatarProgress);
             let nextIdx = idx + 1;
+            let cx, cy;
             
             if (nextIdx < animationRoute.length) {
                 let from = state.nodes[animationRoute[idx]];
                 let to = state.nodes[animationRoute[nextIdx]];
                 let t = state.avatarProgress - idx;
                 
-                let cx = (from.x + (to.x - from.x) * t) * w;
-                let cy = (from.y + (to.y - from.y) * t) * h;
-                
-                ctx.font = '30px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('🛵', cx, cy - 10);
+                cx = (from.x + (to.x - from.x) * t) * w;
+                cy = (from.y + (to.y - from.y) * t) * h;
+            } else {
+                // 도착 완료 시 마지막 목적지(기지 🏠)에 얌전히 정차
+                const lastNode = state.nodes[animationRoute[animationRoute.length - 1]];
+                cx = lastNode.x * w;
+                cy = lastNode.y * h;
             }
+            
+            ctx.font = '30px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🛵', cx, cy - 10);
         }
     }
 
