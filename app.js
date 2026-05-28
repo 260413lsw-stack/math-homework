@@ -935,16 +935,21 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('overlayMyDist').textContent = myDist.toFixed(1) + ' km';
         document.getElementById('overlayOptDist').textContent = optDist ? optDist.toFixed(1) + ' km' : '-';
         
-        // 탄소 배출량 및 유류비 절감 정량적 계산
+        // 탄소 배출량 및 유류비 절감 정량적 계산 (대안 A: 오차에 따른 낭비 표시)
         let calcDesc = descText || '';
         if (optDist) {
-            const distSaved = myDist - optDist;
-            const co2Saved = Math.max(0, distSaved * 120); // 1km당 120g CO2 저감
-            const moneySaved = Math.max(0, (distSaved / 10) * 1650); // 연비 10km/L, 휘발유 1,650원 가정
-            
-            calcDesc += `<br><span class="eco-friendly-text" style="color: var(--accent-green); font-weight: 600; font-size: 0.85rem; display: inline-block; margin-top: 8px;">
-                🌱 탄소 중립 효과: CO₂ 약 ${co2Saved.toFixed(0)}g 저감 | 유류비 ${moneySaved.toFixed(0)}원 절감!
-            </span>`;
+            const diff = myDist - optDist;
+            if (diff <= 0.01) {
+                calcDesc += `<br><span class="eco-friendly-text" style="color: var(--accent-green); font-weight: 600; font-size: 0.85rem; display: inline-block; margin-top: 8px;">
+                    🌱 탄소 중립 효과: 에너지 낭비와 탄소 배출을 100% 방지했습니다! (최대 효율 주행)
+                </span>`;
+            } else {
+                const co2Wasted = diff * 120; // 1km당 120g CO2 추가 발생
+                const moneyWasted = (diff / 10) * 1650; // 연비 10km/L, 휘발유 1,650원 가정
+                calcDesc += `<br><span class="eco-friendly-text" style="color: #fbbf24; font-weight: 600; font-size: 0.85rem; display: inline-block; margin-top: 8px;">
+                    ⚠️ 탄소 중립 효과: 최적 경로 대비 CO₂ 약 ${co2Wasted.toFixed(0)}g 추가 발생 | 유류비 ${moneyWasted.toFixed(0)}원 추가 지출!
+                </span>`;
+            }
         }
         document.getElementById('overlayDesc').innerHTML = calcDesc;
         
