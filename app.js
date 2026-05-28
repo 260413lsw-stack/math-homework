@@ -939,7 +939,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let calcDesc = descText || '';
         if (optDist) {
             const diff = myDist - optDist;
-            if (diff <= 0.01) {
+            // 주행을 완료하지 않았거나(myDist가 0이거나 기지로 돌아오지 않음), Time Over인 경우 최대 효율 주행 메시지를 보여주지 않음
+            if (myDist <= 0 || title.includes("TIME OVER")) {
+                calcDesc += `<br><span class="eco-friendly-text" style="color: #ef4444; font-weight: 600; font-size: 0.85rem; display: inline-block; margin-top: 8px;">
+                    ❌ 배달 미완료: 이동 경로를 완주하지 못해 탄소 저감 및 물류 최적화 효과를 측정할 수 없습니다.
+                </span>`;
+            } else if (diff <= 0.01) {
                 calcDesc += `<br><span class="eco-friendly-text" style="color: var(--accent-green); font-weight: 600; font-size: 0.85rem; display: inline-block; margin-top: 8px;">
                     🌱 탄소 중립 효과: 에너지 낭비와 탄소 배출을 100% 방지했습니다! (최대 효율 주행)
                 </span>`;
